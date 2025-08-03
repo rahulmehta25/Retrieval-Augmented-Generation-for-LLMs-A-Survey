@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project specific
+chroma_db/
+ollama_chroma_db/
+embedding_cache/
+*.log
+*.txt
+!requirements.txt
+!frontend_requirements.md
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Test files
+test_*.py
+!test_rag.py
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Model files
+*.bin
+*.h5
+*.pkl
+*.pth
+*.onnx
+
+# Documentation build
+docs/_build/
+docs/_static/
+docs/_templates/
