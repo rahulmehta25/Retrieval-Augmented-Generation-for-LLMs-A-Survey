@@ -190,7 +190,7 @@ class OllamaGenerator(Generator):
         
         self._check_model_availability()
         
-        # Prepare request data
+        # Prepare request data with optimized parameters
         data = {
             "model": self.model_name,
             "prompt": prompt,
@@ -198,7 +198,11 @@ class OllamaGenerator(Generator):
             "options": {
                 "num_predict": max_new_tokens,
                 "temperature": temperature,
-                **kwargs
+                "top_k": kwargs.get('top_k', 40),
+                "top_p": kwargs.get('top_p', 0.9),
+                "repeat_penalty": kwargs.get('repeat_penalty', 1.1),
+                "stop": kwargs.get('stop', ["\n\nQuestion:", "\n\nContext:"]),
+                **{k: v for k, v in kwargs.items() if k not in ['top_k', 'top_p', 'repeat_penalty', 'stop']}
             }
         }
         
@@ -306,12 +310,21 @@ class PromptTemplate:
     """
     def __init__(self, template: str = None):
         if template is None:
-            # Use a simpler template that works better with smaller models
-            self.template = """Based on this information: {context}
+            # Use a more structured template optimized for Gemma
+            self.template = """You are a helpful AI assistant. Your task is to answer questions based ONLY on the provided context.
+
+Rules:
+1. Use ONLY information from the context below
+2. If the answer is not in the context, say "I don't have enough information in the provided context to answer this question."
+3. Be specific and cite the relevant context when answering
+4. Keep answers concise and factual
+
+Context information:
+{context}
 
 Question: {question}
 
-Answer:"""
+Based on the context above, here is my answer:"""
         else:
             self.template = template
 

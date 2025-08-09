@@ -1,12 +1,13 @@
 import os
 import yaml
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Tuple
 
 from src.chunking.text_splitter import FixedSizeTextSplitter, DocumentLoader
 from src.embedding.embedder import SentenceTransformerEmbedder
 from src.retrieval.vector_store import ChromaDBVectorStore, FAISSVectorStore
 from src.generation.generator import HuggingFaceGenerator, PromptTemplate
+from src.evaluation.ragas_metrics import RAGASEvaluator, RAGASScore
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,7 +16,7 @@ class NaiveRAG:
     """
     Implements a basic Retrieve-Augmented Generation (RAG) pipeline.
     """
-    def __init__(self, config_path: str = 'config.yaml'):
+    def __init__(self, config_path: str = 'config.yaml', enable_evaluation: bool = False):
         self.config = self._load_config(config_path)
 
         # Initialize components based on configuration
@@ -25,6 +26,11 @@ class NaiveRAG:
         self.generator = self._initialize_generator()
         self.prompt_template = PromptTemplate()
         self.document_loader = DocumentLoader() # For loading documents
+        
+        # Initialize RAGAS evaluator if enabled
+        self.evaluator = None
+        if enable_evaluation:
+            self.evaluator = RAGASEvaluator(llm_generator=self.generator)
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         if not os.path.exists(config_path):
@@ -114,6 +120,10 @@ class NaiveRAG:
                     text = self.document_loader.load_pdf_text(doc_path)
                 elif file_extension == '.md':
                     text = self.document_loader.load_markdown_text(doc_path)
+                elif file_extension in ['.xlsx', '.xls']:
+                    text = self.document_loader.load_excel_text(doc_path)
+                elif file_extension in ['.docx', '.doc']:
+                    text = self.document_loader.load_docx_text(doc_path)
                 else:
                     logging.warning(f"Unsupported file type for {doc_path}. Skipping.")
                     continue
@@ -145,6 +155,14 @@ class NaiveRAG:
         query_embedding = self.embedder.embed([query])[0]
         retrieved_docs = self.vector_store.search(query_embedding, k=k, filters=filters)
         logging.info(f"Retrieved {len(retrieved_docs)} documents.")
+        
+        # Log document details for debugging
+        if retrieved_docs:
+            for i, doc in enumerate(retrieved_docs[:3]):  # Log first 3 docs
+                logging.info(f"Doc {i+1} - Distance: {doc.get('distance', 'N/A')}, Content preview: {doc.get('content', '')[:100]}...")
+        else:
+            logging.warning("No documents retrieved from vector store!")
+            
         return retrieved_docs
 
     def generate_answer(self, question: str, retrieved_contexts: List[Dict[str, Any]]) -> str:
@@ -152,9 +170,16 @@ class NaiveRAG:
         Generates an answer using the LLM based on the question and retrieved contexts.
         """
         logging.info("Generating answer...")
-        context_contents = [doc['content'] for doc in retrieved_contexts]
+        # Format contexts with more information
+        context_contents = []
+        for i, doc in enumerate(retrieved_contexts):
+            content = doc['content']
+            # Add context number for better organization
+            context_contents.append(f"[Context {i+1}]: {content}")
+        
         formatted_prompt = self.prompt_template.format_prompt(question, context_contents)
-        answer = self.generator.generate(formatted_prompt)
+        logging.info(f"Prompt length: {len(formatted_prompt)} characters")
+        answer = self.generator.generate(formatted_prompt, max_new_tokens=500, temperature=0.7)
         logging.info("Answer generated.")
         return answer
 
@@ -162,16 +187,120 @@ class NaiveRAG:
         """
         End-to-end query method for the Naive RAG pipeline.
         """
+        # Handle greetings and general queries differently
+        greetings = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings']
+        question_lower = question.lower().strip()
+        
+        if any(greeting in question_lower for greeting in greetings) and len(question_lower.split()) <= 3:
+            return "Hello! I am your RAG assistant. I can help you find information from the documents in my knowledge base. What would you like to know?"
+        
         retrieved_contexts = self.retrieve(question, k=k, filters=filters)
         if not retrieved_contexts:
             logging.warning("No relevant contexts found. Cannot generate an answer.")
-            return "I am sorry, but I could not find enough relevant information to answer your question."
+            return "I could not find any relevant information in my knowledge base to answer your question. Please try asking about topics covered in the uploaded documents."
         
         # Check if the retrieved contexts are actually relevant
         # If the best match has a very high distance, it might not be relevant
-        if retrieved_contexts and retrieved_contexts[0].get('distance', 0) > 0.8:
-            logging.warning("Retrieved contexts have low relevance scores.")
-            return "I am sorry, but I could not find enough relevant information to answer your question."
+        # Increased threshold to 1.8 for more lenient matching
+        if retrieved_contexts and retrieved_contexts[0].get('distance', 0) > 1.8:
+            best_distance = retrieved_contexts[0].get('distance', 0)
+            logging.warning(f"Retrieved contexts have low relevance scores. Best distance: {best_distance} (threshold: 1.8)")
+            return "I could not find sufficiently relevant information in my knowledge base to answer your question. Please try rephrasing or asking about topics covered in the uploaded documents."
             
         answer = self.generate_answer(question, retrieved_contexts)
-        return answer 
+        return answer
+    
+    def query_with_contexts(self, question: str, k: int = 5, 
+                           filters: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        End-to-end query method that returns both answer and contexts.
+        Useful for evaluation and debugging.
+        
+        Args:
+            question: The question to answer
+            k: Number of contexts to retrieve
+            filters: Optional filters for retrieval
+        
+        Returns:
+            Dictionary with answer, contexts, and optional metadata
+        """
+        # Handle greetings
+        greetings = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings']
+        question_lower = question.lower().strip()
+        
+        if any(greeting in question_lower for greeting in greetings) and len(question_lower.split()) <= 3:
+            return {
+                'answer': "Hello! I am your RAG assistant. I can help you find information from the documents in my knowledge base. What would you like to know?",
+                'contexts': [],
+                'metadata': {'type': 'greeting'}
+            }
+        
+        # Retrieve contexts
+        retrieved_contexts = self.retrieve(question, k=k, filters=filters)
+        
+        if not retrieved_contexts:
+            return {
+                'answer': "I could not find any relevant information in my knowledge base to answer your question.",
+                'contexts': [],
+                'metadata': {'type': 'no_contexts'}
+            }
+        
+        # Check relevance threshold
+        if retrieved_contexts[0].get('distance', 0) > 1.8:
+            return {
+                'answer': "I could not find sufficiently relevant information in my knowledge base to answer your question.",
+                'contexts': [ctx['content'] for ctx in retrieved_contexts],
+                'metadata': {
+                    'type': 'low_relevance',
+                    'best_distance': retrieved_contexts[0].get('distance', 0)
+                }
+            }
+        
+        # Generate answer
+        answer = self.generate_answer(question, retrieved_contexts)
+        
+        # Extract context contents
+        context_contents = [ctx['content'] for ctx in retrieved_contexts]
+        
+        return {
+            'answer': answer,
+            'contexts': context_contents,
+            'metadata': {
+                'type': 'success',
+                'num_contexts': len(context_contents)
+            }
+        }
+    
+    def query_with_evaluation(self, question: str, k: int = 5,
+                             filters: Dict[str, Any] = None,
+                             ground_truth: Optional[str] = None) -> Tuple[str, Optional[RAGASScore]]:
+        """
+        Query with automatic RAGAS evaluation.
+        
+        Args:
+            question: The question to answer
+            k: Number of contexts to retrieve
+            filters: Optional filters for retrieval
+            ground_truth: Optional ground truth answer for evaluation
+        
+        Returns:
+            Tuple of (answer, RAGAS scores if evaluator is enabled)
+        """
+        # Get answer and contexts
+        result = self.query_with_contexts(question, k=k, filters=filters)
+        answer = result['answer']
+        contexts = result['contexts']
+        
+        # Evaluate if evaluator is available
+        ragas_score = None
+        if self.evaluator and contexts:
+            ragas_score = self.evaluator.evaluate(
+                question=question,
+                answer=answer,
+                contexts=contexts,
+                ground_truth=ground_truth
+            )
+            
+            logging.info(f"RAGAS Evaluation Scores: {ragas_score.to_dict()}")
+        
+        return answer, ragas_score 
