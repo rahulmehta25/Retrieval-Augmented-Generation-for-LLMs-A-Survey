@@ -1,0 +1,82 @@
+[
+  {
+    "question": "What is Retrieval-Augmented Generation (RAG)?",
+    "ground_truth": "Retrieval-Augmented Generation (RAG) is a technique that combines information retrieval with text generation, where relevant documents are first retrieved from a knowledge base and then used as context to generate accurate, grounded responses."
+  },
+  {
+    "question": "What are the main components of a RAG system?",
+    "ground_truth": "The main components of a RAG system include: a document store or vector database for storing knowledge, an embedding model for converting text to vectors, a retriever for finding relevant documents, and a generator (LLM) for producing answers based on retrieved context."
+  },
+  {
+    "question": "How do embeddings work in RAG systems?",
+    "ground_truth": "Embeddings in RAG systems convert text into dense numerical vectors that capture semantic meaning. These vectors enable efficient similarity search by representing documents and queries in the same vector space, where semantically similar texts have vectors close to each other."
+  },
+  {
+    "question": "What is the difference between naive RAG and advanced RAG?",
+    "ground_truth": "Naive RAG uses a simple retrieve-then-read approach with basic retrieval and generation. Advanced RAG includes query optimization techniques like query rewriting, expansion, and decomposition, as well as enhancements like reranking and hybrid search for improved performance."
+  },
+  {
+    "question": "What is RAGAS and how is it used for evaluation?",
+    "ground_truth": "RAGAS (Retrieval Augmented Generation Assessment) is an evaluation framework that provides metrics like faithfulness, answer relevancy, context relevancy, and context precision to assess the quality of RAG systems without requiring extensive human evaluation."
+  },
+  {
+    "question": "What is the purpose of chunking in RAG?",
+    "ground_truth": "Chunking in RAG breaks down large documents into smaller, manageable pieces that can be efficiently embedded, stored, and retrieved. This allows the system to find specific relevant passages rather than entire documents, improving retrieval precision and generation quality."
+  },
+  {
+    "question": "How does hybrid search improve RAG performance?",
+    "ground_truth": "Hybrid search combines dense vector search (semantic similarity) with sparse keyword search (lexical matching) to leverage the strengths of both approaches. This improves retrieval by capturing both semantic meaning and exact term matches."
+  },
+  {
+    "question": "What is context compression in RAG?",
+    "ground_truth": "Context compression in RAG reduces the size of retrieved contexts while preserving relevant information. This helps fit more context within LLM token limits and improves efficiency by removing redundant or less relevant parts of the retrieved documents."
+  },
+  {
+    "question": "What role does reranking play in RAG systems?",
+    "ground_truth": "Reranking in RAG systems re-scores and reorders initially retrieved documents using more sophisticated models like cross-encoders. This improves the relevance of top results by considering the full interaction between query and document, leading to better answer generation."
+  },
+  {
+    "question": "How can RAG systems handle multi-hop reasoning?",
+    "ground_truth": "RAG systems handle multi-hop reasoning by decomposing complex queries into sub-questions, retrieving information iteratively for each step, and building upon previous retrievals to answer questions that require connecting information from multiple sources."
+  },
+  {
+    "question": "What is the difference between extractive and abstractive context compression?",
+    "ground_truth": "Extractive context compression selects and keeps the most relevant sentences or passages from retrieved documents. Abstractive compression generates new, condensed summaries of the context, potentially combining information from multiple sources into a more concise form."
+  },
+  {
+    "question": "How does fine-tuning improve RAG performance?",
+    "ground_truth": "Fine-tuning improves RAG performance by adapting the retriever and/or generator to specific domains or tasks. Retriever fine-tuning improves document relevance, while generator fine-tuning helps produce more accurate, domain-specific answers from retrieved context."
+  },
+  {
+    "question": "What is HyDE in the context of RAG?",
+    "ground_truth": "HyDE (Hypothetical Document Embeddings) is a query optimization technique where the system generates a hypothetical answer to the question, then uses that answer's embedding for retrieval. This can improve retrieval when the query and relevant documents use different vocabulary."
+  },
+  {
+    "question": "What are the key metrics in RAGAS evaluation?",
+    "ground_truth": "The key RAGAS metrics are: Faithfulness (how grounded the answer is in retrieved context), Answer Relevancy (how relevant the answer is to the question), Context Relevancy (how relevant retrieved contexts are), and Context Precision (ranking quality of retrieved contexts)."
+  },
+  {
+    "question": "How does query expansion improve retrieval in RAG?",
+    "ground_truth": "Query expansion improves retrieval by adding related terms, synonyms, or rephrased versions of the original query. This helps match documents that contain relevant information but use different terminology than the original question."
+  },
+  {
+    "question": "What is the purpose of document metadata in RAG systems?",
+    "ground_truth": "Document metadata in RAG systems provides additional context like source, date, author, or category that can be used for filtering, ranking, or providing attribution in answers. Metadata helps users understand the provenance and relevance of retrieved information."
+  },
+  {
+    "question": "How do vector databases differ from traditional databases for RAG?",
+    "ground_truth": "Vector databases are optimized for storing and searching high-dimensional embeddings using similarity metrics like cosine similarity. Unlike traditional databases that use exact matches, vector databases enable semantic search by finding vectors closest to a query embedding."
+  },
+  {
+    "question": "What is semantic search in RAG?",
+    "ground_truth": "Semantic search in RAG finds documents based on meaning rather than exact keyword matches. It uses embeddings to represent text as vectors and retrieves documents whose vectors are semantically similar to the query vector, even if they don't share exact words."
+  },
+  {
+    "question": "How can RAG systems ensure factual accuracy?",
+    "ground_truth": "RAG systems ensure factual accuracy by grounding responses in retrieved documents, using faithfulness metrics to verify claims against sources, implementing fact-checking mechanisms, and providing citations so users can verify information themselves."
+  },
+  {
+    "question": "What is the role of prompt engineering in RAG?",
+    "ground_truth": "Prompt engineering in RAG involves crafting instructions that guide the LLM to effectively use retrieved context, stay grounded in facts, acknowledge uncertainty, and format responses appropriately. Good prompts significantly impact answer quality and faithfulness."
+  }
+]

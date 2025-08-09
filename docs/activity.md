@@ -446,4 +446,46 @@ The user wants to use Ollama models like Gemma. Ollama runs models locally via H
 - **gemma:7b** - Better quality (5.0GB), production-ready
 - **llama2:7b** - Meta's model (3.8GB), well-tested
 - **mistral:7b** - High efficiency (4.1GB), excellent performance
-- **codellama:7b** - Code-focused (3.8GB), ideal for code RAG 
+- **codellama:7b** - Code-focused (3.8GB), ideal for code RAG
+
+---
+
+## Session 6: Glass Scroll Scribe UI Maintenance (2025-01-27)
+
+### User Request
+"please remove the favicon heart for the new glass scroll"
+
+### Actions Taken
+
+#### Favicon Removal ✅
+1. **File Removal**
+   - Removed `glass-scroll-scribe/public/favicon.ico` using terminal command
+   - Verified no favicon references exist in HTML, TypeScript, or configuration files
+   - Confirmed clean removal by checking public directory contents
+
+2. **Verification**
+   - Checked `glass-scroll-scribe/index.html` for favicon links (none found)
+   - Searched entire codebase for favicon references (no matches found)
+   - Verified public directory now contains only `placeholder.svg` and `robots.txt`
+
+### Results
+✅ **FAVICON HEART SUCCESSFULLY REMOVED**
+- Complete removal of favicon.ico file from glass-scroll-scribe project
+- No remaining favicon references in codebase
+- Browser will now show default blank favicon instead of heart icon
+- Clean project structure maintained
+
+### Technical Details
+- **Removed File**: `glass-scroll-scribe/public/favicon.ico`
+- **Method**: Terminal command `rm -f public/favicon.ico`
+- **Verification**: Comprehensive search for favicon references
+- **Impact**: Minimal - only affects browser tab icon display
+
+### Files Modified
+- `glass-scroll-scribe/public/favicon.ico` - Deleted (heart favicon removed)
+- `docs/activity.md` - This activity log update
+
+### Next Steps
+If a custom favicon is desired in the future:
+1. Place new favicon.ico file in `public/` directory, or
+2. Add `<link rel="icon">` tag to `index.html` file 
