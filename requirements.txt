@@ -41,6 +41,9 @@ psutil>=5.8.0
 streamlit>=1.28.0
 plotly>=5.17.0
 
+# Document formats
+python-docx>=0.8.11
+
 # RAGAS Evaluation Framework
 ragas>=0.1.0
 datasets>=2.14.0  # For loading evaluation datasets

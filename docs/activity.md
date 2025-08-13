@@ -653,3 +653,19 @@ If a custom favicon is desired in the future:
 
 ### Next Steps
 The system is now configured with the optimal model and should provide excellent RAG performance without memory issues. Ready for testing and evaluation. 
+
+---
+
+## Session 7: Local Deployment and Config Update (2025-08-13)
+
+### User Request
+"please commit the code to github. I am planning to deploy this application to share.streamlit.io to render all components. Or, can we get this running on 8501 instead of 0.0.0.0?"
+
+### Actions Taken
+1. Updated Streamlit server bind address in `.streamlit/config.toml` to `127.0.0.1` while keeping port `8501`.
+2. Added `python-docx` to `requirements.txt` to support DOCX ingestion in UI flows.
+3. Committed and pushed repository changes to GitHub.
+4. Prepared repo for Streamlit Community Cloud deployment (requirements in place, config scoped to local only).
+
+### Notes
+- For Streamlit Cloud, the bind address is managed by the platform; the local-only `127.0.0.1` setting affects only local runs.
