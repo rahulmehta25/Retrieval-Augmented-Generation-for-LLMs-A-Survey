@@ -18,13 +18,14 @@ vector_store:
 
 generator:
   type: ollama
-  model_name: gemma:2b  # Lightweight 2B model - only ~1.7GB RAM required!
-  # You also have installed:
-  # model_name: qwen2.5-coder:7b  # Great for code-related tasks
-  # Other Ollama models you can install:
-  # model_name: llama2        # Meta's Llama 2 (3.8GB)
-  # model_name: mistral       # Mistral 7B (4.1GB) 
-  # model_name: phi           # Microsoft Phi-2 (2.7GB)
+  model_name: llama2:7b  # Meta's Llama 2 (3.8GB) - Excellent GPT-style model for RAG
+  # Excellent open-weight models you now have installed:
+  # model_name: llama2:7b      # Meta's Llama 2 (3.8GB) - Excellent GPT-style model
+  # model_name: mistral:7b     # Mistral 7B (4.4GB) - High-quality open-weight model
+  # model_name: qwen2.5-coder:7b  # Great for code-related tasks and RAG evaluation
+  # Lightweight alternatives:
+  # model_name: gemma:2b       # Lightweight 2B model (1.7GB RAM)
+  # model_name: gemma:7b       # Better quality (5.0GB RAM)
   # For OpenAI, you might need:
   # type: openai
   # model_name: gpt-3.5-turbo

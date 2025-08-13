@@ -89,6 +89,88 @@ st.markdown("""
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
     }
+    
+    /* Fix tab content styling - More specific rules */
+    .stTabs [data-baseweb="tab-panel"] {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 10px !important;
+        padding: 20px !important;
+        margin-top: 10px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    }
+    
+    /* Ensure content within tabs has proper background */
+    .stTabs [data-baseweb="tab-panel"] > div {
+        background: transparent !important;
+    }
+    
+    /* Style the main content area */
+    .main .block-container {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 10px !important;
+        padding: 20px !important;
+        margin: 20px 0 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    }
+    
+    /* Fix any white backgrounds in tab content */
+    .stTabs [data-baseweb="tab-panel"] .stMarkdown,
+    .stTabs [data-baseweb="tab-panel"] .stDataFrame,
+    .stTabs [data-baseweb="tab-panel"] .stPlotlyChart {
+        background: transparent !important;
+    }
+    
+    /* Style headers within tabs */
+    .stTabs [data-baseweb="tab-panel"] h1,
+    .stTabs [data-baseweb="tab-panel"] h2,
+    .stTabs [data-baseweb="tab-panel"] h3 {
+        color: #2c3e50 !important;
+        margin-bottom: 15px !important;
+    }
+    
+    /* Style text content within tabs */
+    .stTabs [data-baseweb="tab-panel"] p,
+    .stTabs [data-baseweb="tab-panel"] li {
+        color: #34495e !important;
+        line-height: 1.6 !important;
+    }
+    
+    /* Ensure proper spacing in tab content */
+    .stTabs [data-baseweb="tab-panel"] > div {
+        padding: 10px 0 !important;
+    }
+    
+    /* Additional specific rules for tab content */
+    .stTabs [data-baseweb="tab-panel"] .stMarkdown > div {
+        background: transparent !important;
+    }
+    
+    /* Force background for all tab content */
+    .stTabs [data-baseweb="tab-panel"] * {
+        background: transparent !important;
+    }
+    
+    /* Specific override for Streamlit's default white backgrounds */
+    .stTabs [data-baseweb="tab-panel"] .block-container {
+        background: rgba(255, 255, 255, 0.95) !important;
+    }
+    
+    /* Target specific tab content areas */
+    .stTabs [data-baseweb="tab-panel"] .stMarkdown,
+    .stTabs [data-baseweb="tab-panel"] .stDataFrame,
+    .stTabs [data-baseweb="tab-panel"] .stPlotlyChart,
+    .stTabs [data-baseweb="tab-panel"] .stButton,
+    .stTabs [data-baseweb="tab-panel"] .stSelectbox,
+    .stTabs [data-baseweb="tab-panel"] .stNumberInput,
+    .stTabs [data-baseweb="tab-panel"] .stTextInput {
+        background: transparent !important;
+    }
+    
+    /* Ensure tab content has proper background */
+    .stTabs [data-baseweb="tab-panel"] .stMarkdown > div,
+    .stTabs [data-baseweb="tab-panel"] .stMarkdown > div > div {
+        background: rgba(255, 255, 255, 0.95) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -213,14 +295,21 @@ def display_ragas_metrics(scores: Dict[str, float]):
     if not scores:
         return
     
+    # Filter out None values and handle them gracefully
+    valid_scores = {k: v for k, v in scores.items() if v is not None}
+    
+    if not valid_scores:
+        st.warning("All RAGAS scores are None - evaluation may have failed")
+        return
+    
     cols = st.columns(5)
     
     metrics = [
-        ("Faithfulness", scores.get('faithfulness', 0)),
-        ("Answer Relevancy", scores.get('answer_relevancy', 0)),
-        ("Context Relevancy", scores.get('context_relevancy', 0)),
-        ("Context Precision", scores.get('context_precision', 0)),
-        ("Overall", scores.get('overall', 0))
+        ("Faithfulness", valid_scores.get('faithfulness', 0)),
+        ("Answer Relevancy", valid_scores.get('answer_relevancy', 0)),
+        ("Context Relevancy", valid_scores.get('context_relevancy', 0)),
+        ("Context Precision", valid_scores.get('context_precision', 0)),
+        ("Overall", valid_scores.get('overall', 0))
     ]
     
     for col, (name, value) in zip(cols, metrics):
@@ -238,6 +327,11 @@ def display_ragas_metrics(scores: Dict[str, float]):
                 value=f"{value:.3f}",
                 delta=f"{color}"
             )
+    
+    # Show warning for None scores
+    none_scores = {k: v for k, v in scores.items() if v is None}
+    if none_scores:
+        st.warning(f"Some metrics failed to evaluate: {', '.join(none_scores.keys())}")
 
 def display_evaluation_dashboard():
     """Display evaluation metrics dashboard"""
