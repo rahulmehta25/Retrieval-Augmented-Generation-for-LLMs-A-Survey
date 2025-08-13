@@ -104,3 +104,30 @@
   - Enhanced RAG system with query_with_contexts() and query_with_evaluation() methods
   - Added support for multiple document formats (PDF, Excel, Word, Markdown)
   - Implemented optimized prompt templates and generation parameters
+
+## 2025-08-13
+
+### Advanced RAG Features Implementation
+
+**User Request**: Commit the advanced RAG implementation files including streaming, graph-based RAG, and self-RAG with the message: "Implement advanced RAG features: streaming, graph-based retrieval, and self-reflection mechanisms"
+
+**Actions Taken**:
+- Identified newly created advanced RAG modules in the rag-from-scratch submodule:
+  - `src/advanced_rag/` directory containing:
+    - `__init__.py` - Package initialization
+    - `self_rag.py` - Self-reflection RAG implementation
+  - `src/graph_rag/` directory containing:
+    - `__init__.py` - Package initialization  
+    - `knowledge_graph.py` - Knowledge graph construction and management
+    - `multi_hop.py` - Multi-hop reasoning capabilities
+  - `src/streaming/` directory containing:
+    - `__init__.py` - Package initialization
+    - `stream_handler.py` - Real-time streaming response handling
+  - `.streamlit/config.toml` - Streamlit configuration for advanced features
+- Successfully staged all advanced RAG implementation files
+- Created commit 7e338a8 in rag-from-scratch submodule with message "Implement advanced RAG features: streaming, graph-based retrieval, and self-reflection mechanisms"
+- Pushed changes to ragas-implementation branch
+- Files committed included:
+  - 11 files changed, 1747 insertions, 13 deletions
+  - Complete advanced RAG feature set with streaming, graph-based retrieval, and self-reflection mechanisms
+  - Enhanced Streamlit application configuration for advanced features
