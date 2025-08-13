@@ -192,9 +192,9 @@ def _make_json_safe(value: Any) -> Any:
     if isinstance(value, (list, tuple, set)):
         return [_make_json_safe(v) for v in list(value)]
     # numpy scalars
-    if isinstance(value, (np.integer, np.int_)):
+    if isinstance(value, np.integer):
         return int(value)
-    if isinstance(value, (np.floating, np.float_)):
+    if isinstance(value, np.floating):
         return float(value)
     if isinstance(value, np.ndarray):
         return value.tolist()
