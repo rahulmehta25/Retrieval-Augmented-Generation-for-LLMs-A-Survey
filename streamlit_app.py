@@ -12,6 +12,7 @@ import json
 import time
 from typing import List, Dict, Any
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -183,6 +184,28 @@ if 'rag_system' not in st.session_state:
     st.session_state.evaluation_results = []
     st.session_state.documents_loaded = False
     st.session_state.uploaded_files = []
+
+def _make_json_safe(value: Any) -> Any:
+    """Recursively convert numpy/pandas types to JSON-serializable Python types."""
+    if isinstance(value, dict):
+        return {k: _make_json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_make_json_safe(v) for v in list(value)]
+    # numpy scalars
+    if isinstance(value, (np.integer, np.int_)):
+        return int(value)
+    if isinstance(value, (np.floating, np.float_)):
+        return float(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    # pandas types
+    if hasattr(pd, "Timestamp") and isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, pd.Series):
+        return _make_json_safe(value.to_dict())
+    if isinstance(value, pd.DataFrame):
+        return _make_json_safe(value.to_dict(orient="records"))
+    return value
 
 def initialize_rag_system(rag_type: str = "naive", enable_evaluation: bool = True):
     """Initialize the selected RAG system"""
@@ -453,8 +476,9 @@ def display_evaluation_dashboard():
     col1, col2 = st.columns(2)
     
     with col1:
-        # Export as JSON
-        json_str = json.dumps(st.session_state.evaluation_results, indent=2)
+        # Export as JSON (convert numpy/pandas types to built-ins)
+        json_safe_results = _make_json_safe(st.session_state.evaluation_results)
+        json_str = json.dumps(json_safe_results, indent=2)
         st.download_button(
             label="Download as JSON",
             data=json_str,
