@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, AsyncIterator
 import os
 import tempfile
 import shutil
@@ -10,11 +11,20 @@ import uuid
 import logging
 import json
 from pathlib import Path
+import asyncio
+from sse_starlette.sse import EventSourceResponse
 
 from src.rag.naive_rag import NaiveRAG
+from src.rag.advanced_rag import AdvancedRAG
+from src.rag.modular_rag import ModularRAG
 from src.evaluation.ragas_metrics import RAGASEvaluator
 from src.evaluation.benchmark import RAGBenchmark
 from src.evaluation.human_eval import HumanEvaluationInterface, EvaluationBatch
+from src.streaming.stream_handler import StreamingRAG, StreamEvent, StreamEventType
+from src.graph_rag.knowledge_graph import GraphRAG
+from src.graph_rag.multi_hop import MultiHopReasoning
+from src.advanced_rag.self_rag import SelfRAG
+from src.optimization.query_router import QueryRouter
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -54,6 +64,33 @@ except Exception as e:
 evaluator = RAGASEvaluator(llm_generator=rag_system.generator)
 benchmark = RAGBenchmark(rag_system, evaluator)
 human_eval = HumanEvaluationInterface(app)
+
+# Initialize streaming handler
+streaming_rag = StreamingRAG(rag_system, llm_type="ollama")
+
+# Initialize advanced RAG systems
+try:
+    advanced_rag = AdvancedRAG(config_path='config.yaml')
+    modular_rag = ModularRAG(config_path='config.yaml')
+    graph_rag = GraphRAG()
+    multi_hop = MultiHopReasoning(graph_rag, rag_system.generator)
+    self_rag = SelfRAG(rag_system, rag_system.generator)
+    
+    # Initialize query router with all RAG strategies
+    rag_strategies = {
+        'naive': rag_system,
+        'advanced': advanced_rag,
+        'modular': modular_rag,
+        'graph': graph_rag,
+        'self': self_rag
+    }
+    query_router = QueryRouter(rag_strategies)
+    logger.info("All RAG systems initialized successfully")
+except Exception as e:
+    logger.warning(f"Some advanced RAG systems could not be initialized: {e}")
+    advanced_rag = None
+    graph_rag = None
+    query_router = None
 
 # In-memory storage for documents and authentication
 documents_db: Dict[str, Dict] = {}
@@ -264,6 +301,175 @@ async def query_rag(request: QueryRequest):
             answer="I'm sorry, I encountered an error processing your question. Please make sure you have uploaded documents and try again.",
             sources=[]
         )
+
+# Streaming chat endpoint
+@app.get("/api/chat/stream")
+async def stream_query(question: str):
+    """
+    Stream RAG responses using Server-Sent Events
+    
+    Args:
+        question: User query
+    
+    Returns:
+        Server-Sent Events stream
+    """
+    async def event_generator():
+        try:
+            # Check if we have documents
+            if len(documents_db) == 0:
+                event = StreamEvent(
+                    type=StreamEventType.ERROR,
+                    content="Please upload some documents first."
+                )
+                yield {
+                    "event": "error",
+                    "data": json.dumps(event.to_dict())
+                }
+                return
+            
+            # Start retrieval
+            event = StreamEvent(type=StreamEventType.RETRIEVAL_START)
+            yield {
+                "event": "retrieval_start",
+                "data": json.dumps(event.to_dict())
+            }
+            
+            # Perform retrieval
+            contexts = rag_system.retrieve(question, k=5)
+            
+            # Send retrieval complete event
+            event = StreamEvent(
+                type=StreamEventType.RETRIEVAL_COMPLETE,
+                contexts=contexts[:2],  # Send top 2 contexts as sources
+                metadata={"num_contexts": len(contexts)}
+            )
+            yield {
+                "event": "retrieval_complete",
+                "data": json.dumps(event.to_dict())
+            }
+            
+            # Start generation
+            event = StreamEvent(type=StreamEventType.GENERATION_START)
+            yield {
+                "event": "generation_start",
+                "data": json.dumps(event.to_dict())
+            }
+            
+            # Stream tokens
+            async for token in streaming_rag.stream_generate(question, contexts):
+                event = StreamEvent(
+                    type=StreamEventType.TOKEN,
+                    content=token
+                )
+                yield {
+                    "event": "token",
+                    "data": json.dumps(event.to_dict())
+                }
+                # Small delay to prevent overwhelming the client
+                await asyncio.sleep(0.01)
+            
+            # Send complete event
+            event = StreamEvent(type=StreamEventType.COMPLETE)
+            yield {
+                "event": "complete",
+                "data": json.dumps(event.to_dict())
+            }
+            
+        except Exception as e:
+            logger.error(f"Streaming error: {e}", exc_info=True)
+            event = StreamEvent(
+                type=StreamEventType.ERROR,
+                content=str(e)
+            )
+            yield {
+                "event": "error",
+                "data": json.dumps(event.to_dict())
+            }
+    
+    return EventSourceResponse(event_generator())
+
+# Advanced RAG endpoints
+@app.post("/api/chat/query/advanced")
+async def query_advanced(request: QueryRequest):
+    """Query using Advanced RAG with query optimization"""
+    if not advanced_rag:
+        raise HTTPException(status_code=503, detail="Advanced RAG not available")
+    
+    try:
+        answer = advanced_rag.query_optimized(request.question)
+        contexts = advanced_rag.last_contexts if hasattr(advanced_rag, 'last_contexts') else []
+        return QueryResponse(answer=answer, sources=contexts[:2])
+    except Exception as e:
+        logger.error(f"Advanced RAG error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/query/graph")
+async def query_graph(request: QueryRequest):
+    """Query using Graph RAG for knowledge graph-based retrieval"""
+    if not graph_rag:
+        raise HTTPException(status_code=503, detail="Graph RAG not available")
+    
+    try:
+        contexts = graph_rag.graph_retrieve(request.question)
+        answer = rag_system.generator.generate(
+            request.question,
+            "\n".join(contexts) if contexts else ""
+        )
+        return QueryResponse(answer=answer, sources=contexts[:2])
+    except Exception as e:
+        logger.error(f"Graph RAG error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/query/multihop")
+async def query_multihop(request: QueryRequest):
+    """Query using multi-hop reasoning"""
+    if not multi_hop:
+        raise HTTPException(status_code=503, detail="Multi-hop reasoning not available")
+    
+    try:
+        result = await multi_hop.multi_hop_query(request.question)
+        return QueryResponse(
+            answer=result.get('answer', ''),
+            sources=result.get('reasoning_chain', [])[:2]
+        )
+    except Exception as e:
+        logger.error(f"Multi-hop error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/query/self")
+async def query_self_rag(request: QueryRequest):
+    """Query using Self-RAG with reflection"""
+    if not self_rag:
+        raise HTTPException(status_code=503, detail="Self-RAG not available")
+    
+    try:
+        result = await self_rag.query_with_reflection(request.question)
+        return QueryResponse(
+            answer=result.get('answer', ''),
+            sources=result.get('contexts', [])[:2]
+        )
+    except Exception as e:
+        logger.error(f"Self-RAG error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/query/auto")
+async def query_auto_route(request: QueryRequest):
+    """Automatically route query to best RAG strategy"""
+    if not query_router:
+        # Fallback to naive RAG
+        return await query_rag(request)
+    
+    try:
+        result = await query_router.route_query(request.question)
+        return QueryResponse(
+            answer=result.get('answer', ''),
+            sources=result.get('sources', [])[:2]
+        )
+    except Exception as e:
+        logger.error(f"Query routing error: {e}")
+        # Fallback to naive RAG
+        return await query_rag(request)
 
 # System status endpoint
 @app.get("/api/status", response_model=SystemStatus)
