@@ -1,0 +1,180 @@
+{
+  "evaluation_datasets": {
+    "basic_qa": [
+      {
+        "question": "What is machine learning?",
+        "contexts": [
+          "Machine learning is a subset of artificial intelligence that provides systems the ability to automatically learn and improve from experience without being explicitly programmed.",
+          "Machine learning focuses on the development of computer programs that can access data and use it to learn for themselves."
+        ],
+        "ground_truth": "Machine learning is a subset of AI that enables systems to learn automatically from data without explicit programming.",
+        "expected_scores": {
+          "faithfulness": 0.9,
+          "answer_relevancy": 0.95,
+          "context_relevancy": 0.9,
+          "context_precision": 0.85
+        }
+      },
+      {
+        "question": "How do neural networks learn?",
+        "contexts": [
+          "Neural networks learn to perform tasks by considering examples, generally without being programmed with task-specific rules.",
+          "They might learn to identify images that contain cats by analyzing example images that have been manually labeled as 'cat' or 'no cat'."
+        ],
+        "ground_truth": "Neural networks learn by analyzing examples and finding patterns, without requiring explicit programming of rules.",
+        "expected_scores": {
+          "faithfulness": 0.88,
+          "answer_relevancy": 0.92,
+          "context_relevancy": 0.87,
+          "context_precision": 0.83
+        }
+      }
+    ],
+    "complex_reasoning": [
+      {
+        "question": "Compare supervised and unsupervised learning approaches in machine learning",
+        "contexts": [
+          "Supervised learning uses labeled training data to learn a mapping function from inputs to outputs.",
+          "Unsupervised learning finds hidden patterns in data without labeled examples.",
+          "Deep learning can be supervised, semi-supervised or unsupervised depending on the available data."
+        ],
+        "ground_truth": "Supervised learning uses labeled data to learn input-output mappings, while unsupervised learning discovers patterns in unlabeled data without target outputs.",
+        "expected_scores": {
+          "faithfulness": 0.85,
+          "answer_relevancy": 0.90,
+          "context_relevancy": 0.88,
+          "context_precision": 0.80
+        }
+      }
+    ],
+    "domain_specific": [
+      {
+        "question": "What are the main applications of AI in medical diagnosis?",
+        "contexts": [
+          "AI can be used for medical imaging analysis to detect diseases in X-rays, MRIs, and CT scans.",
+          "Machine learning algorithms can analyze patient data to predict health outcomes and recommend treatments.",
+          "Natural language processing helps extract insights from medical records and research papers."
+        ],
+        "ground_truth": "AI applications in medical diagnosis include medical imaging analysis for disease detection, predictive analytics for patient outcomes, and NLP for processing medical records.",
+        "expected_scores": {
+          "faithfulness": 0.92,
+          "answer_relevancy": 0.94,
+          "context_relevancy": 0.91,
+          "context_precision": 0.87
+        }
+      }
+    ]
+  },
+  "retrieval_test_cases": [
+    {
+      "query": "machine learning definition",
+      "expected_top_contexts": [
+        "Machine learning is a subset of artificial intelligence that provides systems the ability to automatically learn and improve from experience",
+        "Machine learning focuses on the development of computer programs that can access data and use it to learn for themselves"
+      ],
+      "expected_scores": [0.95, 0.88],
+      "retrieval_method": "hybrid"
+    },
+    {
+      "query": "neural network architecture",
+      "expected_top_contexts": [
+        "Neural networks are computing systems vaguely inspired by the biological neural networks that constitute animal brains",
+        "Deep learning architectures such as deep neural networks, deep belief networks, recurrent neural networks and convolutional neural networks"
+      ],
+      "expected_scores": [0.92, 0.85],
+      "retrieval_method": "dense"
+    },
+    {
+      "query": "AI healthcare applications",
+      "expected_top_contexts": [
+        "AI can be used for medical imaging analysis, drug discovery, personalized treatment plans, virtual health assistants",
+        "The technology has shown promising results in improving diagnostic accuracy and reducing healthcare costs"
+      ],
+      "expected_scores": [0.96, 0.80],
+      "retrieval_method": "adaptive"
+    }
+  ],
+  "generation_test_cases": [
+    {
+      "query": "What is deep learning?",
+      "contexts": [
+        "Deep learning is part of a broader family of machine learning methods based on artificial neural networks with representation learning.",
+        "Deep learning architectures such as deep neural networks have been applied to computer vision, speech recognition, and natural language processing."
+      ],
+      "expected_answer_characteristics": {
+        "min_length": 50,
+        "max_length": 200,
+        "should_contain": ["deep learning", "neural networks", "machine learning"],
+        "should_not_contain": ["I don't know", "unclear", "undefined"],
+        "coherence_score": 0.8,
+        "relevance_score": 0.9
+      }
+    },
+    {
+      "query": "Explain the relationship between AI, ML, and DL",
+      "contexts": [
+        "Machine learning is a subset of artificial intelligence.",
+        "Deep learning is part of a broader family of machine learning methods.",
+        "AI encompasses various approaches including machine learning and deep learning."
+      ],
+      "expected_answer_characteristics": {
+        "min_length": 80,
+        "max_length": 250,
+        "should_contain": ["artificial intelligence", "machine learning", "deep learning", "subset"],
+        "structure": "hierarchical_explanation",
+        "coherence_score": 0.85,
+        "relevance_score": 0.92
+      }
+    }
+  ],
+  "edge_cases": [
+    {
+      "case": "empty_query",
+      "query": "",
+      "expected_behavior": "graceful_handling",
+      "expected_response_type": "error_or_prompt"
+    },
+    {
+      "case": "very_long_query",
+      "query": "What is machine learning " + "and how does it work " * 50,
+      "expected_behavior": "truncation_or_processing",
+      "expected_response_type": "valid_answer"
+    },
+    {
+      "case": "non_english_query",
+      "query": "¿Qué es el aprendizaje automático?",
+      "expected_behavior": "language_detection_or_processing",
+      "expected_response_type": "attempt_answer"
+    },
+    {
+      "case": "technical_jargon",
+      "query": "Explain backpropagation in CNNs with ReLU activations",
+      "expected_behavior": "technical_explanation",
+      "expected_response_type": "detailed_answer"
+    },
+    {
+      "case": "ambiguous_pronouns",
+      "query": "Tell me more about it",
+      "expected_behavior": "reference_resolution",
+      "expected_response_type": "contextual_answer"
+    }
+  ],
+  "performance_benchmarks": {
+    "latency_targets": {
+      "query_optimization": 50,
+      "retrieval": 200,
+      "generation": 1000,
+      "total_pipeline": 2000
+    },
+    "throughput_targets": {
+      "queries_per_second": 10,
+      "concurrent_users": 50
+    },
+    "accuracy_targets": {
+      "retrieval_precision_at_5": 0.8,
+      "retrieval_recall_at_10": 0.9,
+      "answer_relevancy": 0.85,
+      "answer_faithfulness": 0.9
+    }
+  }
+}

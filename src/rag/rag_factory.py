@@ -5,12 +5,17 @@ This module implements a factory pattern for creating RAG components dynamically
 based on configuration, enabling a modular and pluggable architecture.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 from src.chunking.text_splitter import FixedSizeTextSplitter, SentenceTextSplitter
 from src.embedding.embedder import SentenceTransformerEmbedder
 from src.retrieval.vector_store import ChromaDBVectorStore, FAISSVectorStore
 from src.generation.generator import HuggingFaceGenerator, OpenAIGenerator
 from src.retrieval.reranker import CrossEncoderReranker, SimpleReranker
+from src.config import get_config, RAGConfiguration
+from src.config.models import (
+    TextSplitterConfig, EmbedderConfig, VectorStoreConfig, 
+    GeneratorConfig, RetrievalConfig
+)
 
 class RAGComponentFactory:
     """
@@ -20,12 +25,12 @@ class RAGComponentFactory:
     """
     
     @staticmethod
-    def get_text_splitter(config: dict) -> Any:
+    def get_text_splitter(config: Union[dict, TextSplitterConfig, None] = None) -> Any:
         """
         Creates a text splitter based on configuration.
         
         Args:
-            config: Configuration dictionary for the text splitter
+            config: Configuration object, dict, or None (uses global config)
             
         Returns:
             Configured text splitter instance
@@ -33,25 +38,33 @@ class RAGComponentFactory:
         Raises:
             ValueError: If the splitter type is unknown
         """
-        splitter_type = config.get("type", "fixed_size")
+        # Handle different config input types
+        if config is None:
+            config = get_config().text_splitter
+        elif isinstance(config, dict):
+            # Backward compatibility with dict config
+            config = TextSplitterConfig(**config)
         
-        if splitter_type == "fixed_size":
+        if config.type == "fixed_size":
             return FixedSizeTextSplitter(
-                chunk_size=config.get("chunk_size", 500),
-                chunk_overlap=config.get("chunk_overlap", 50)
+                chunk_size=config.chunk_size,
+                chunk_overlap=config.chunk_overlap
             )
-        elif splitter_type == "sentence":
+        elif config.type == "sentence":
             return SentenceTextSplitter()
+        elif config.type == "semantic":
+            # Semantic splitter (if implemented)
+            return SentenceTextSplitter()  # Fallback for now
         else:
-            raise ValueError(f"Unknown text splitter type: {splitter_type}")
+            raise ValueError(f"Unknown text splitter type: {config.type}")
 
     @staticmethod
-    def get_embedder(config: dict) -> Any:
+    def get_embedder(config: Union[dict, EmbedderConfig, None] = None) -> Any:
         """
         Creates an embedder based on configuration.
         
         Args:
-            config: Configuration dictionary for the embedder
+            config: Configuration object, dict, or None (uses global config)
             
         Returns:
             Configured embedder instance
@@ -59,23 +72,29 @@ class RAGComponentFactory:
         Raises:
             ValueError: If the embedder type is unknown
         """
-        embedder_type = config.get("type", "sentence_transformer")
+        # Handle different config input types
+        if config is None:
+            config = get_config().embedder
+        elif isinstance(config, dict):
+            # Backward compatibility with dict config
+            config = EmbedderConfig(**config)
         
-        if embedder_type == "sentence_transformer":
+        if config.type == "sentence_transformer":
             return SentenceTransformerEmbedder(
-                model_name=config.get("model_name", "all-MiniLM-L6-v2"),
-                cache_dir=config.get("cache_dir", "./embedding_cache")
+                model_name=config.model_name,
+                cache_dir=config.cache_dir
             )
         else:
-            raise ValueError(f"Unknown embedder type: {embedder_type}")
+            raise ValueError(f"Unknown embedder type: {config.type}")
 
     @staticmethod
-    def get_vector_store(config: dict, embedder_instance: Optional[Any] = None) -> Any:
+    def get_vector_store(config: Union[dict, VectorStoreConfig, None] = None, 
+                        embedder_instance: Optional[Any] = None) -> Any:
         """
         Creates a vector store based on configuration.
         
         Args:
-            config: Configuration dictionary for the vector store
+            config: Configuration object, dict, or None (uses global config)
             embedder_instance: Optional embedder instance for internal use
             
         Returns:
@@ -84,26 +103,38 @@ class RAGComponentFactory:
         Raises:
             ValueError: If the vector store type is unknown
         """
-        store_type = config.get("type", "chromadb")
+        # Handle different config input types
+        if config is None:
+            config = get_config().vector_store
+        elif isinstance(config, dict):
+            # Backward compatibility with dict config
+            config = VectorStoreConfig(**config)
         
-        if store_type == "chromadb":
+        if config.type == "chromadb":
             return ChromaDBVectorStore(
-                path=config.get("path", "./chroma_db"),
-                collection_name=config.get("collection_name", "rag_collection")
+                path=config.path,
+                collection_name=config.collection_name
             )
-        elif store_type == "faiss":
-            embedding_dimension = config.get("embedding_dimension", 384)
-            return FAISSVectorStore(embedding_dimension=embedding_dimension)
+        elif config.type == "faiss":
+            # Get embedding dimension from embedder config
+            embedder_config = get_config().embedder
+            return FAISSVectorStore(embedding_dimension=embedder_config.dimension)
+        elif config.type == "hybrid":
+            # Return ChromaDB for now, hybrid implementation would be more complex
+            return ChromaDBVectorStore(
+                path=config.path,
+                collection_name=config.collection_name
+            )
         else:
-            raise ValueError(f"Unknown vector store type: {store_type}")
+            raise ValueError(f"Unknown vector store type: {config.type}")
 
     @staticmethod
-    def get_generator(config: dict) -> Any:
+    def get_generator(config: Union[dict, GeneratorConfig, None] = None) -> Any:
         """
         Creates a generator based on configuration.
         
         Args:
-            config: Configuration dictionary for the generator
+            config: Configuration object, dict, or None (uses global config)
             
         Returns:
             Configured generator instance
@@ -111,34 +142,39 @@ class RAGComponentFactory:
         Raises:
             ValueError: If the generator type is unknown
         """
-        generator_type = config.get("type", "huggingface")
+        # Handle different config input types
+        if config is None:
+            config = get_config().generator
+        elif isinstance(config, dict):
+            # Backward compatibility with dict config
+            config = GeneratorConfig(**config)
         
-        if generator_type == "huggingface":
+        if config.type == "huggingface":
             return HuggingFaceGenerator(
-                model_name=config.get("model_name", "distilgpt2"),
-                device=config.get("device", "cpu")
+                model_name=config.model_name,
+                device="cpu"  # Default device
             )
-        elif generator_type == "openai":
+        elif config.type == "openai":
             return OpenAIGenerator(
-                model_name=config.get("model_name", "gpt-3.5-turbo")
+                model_name=config.model_name
             )
-        elif generator_type == "ollama":
+        elif config.type == "ollama":
             from src.generation.generator import OllamaGenerator
             return OllamaGenerator(
-                model_name=config.get("model_name", "gemma:2b"),
-                host=config.get("host", "localhost"),
-                port=config.get("port", 11434)
+                model_name=config.model_name,
+                host=config.host,
+                port=config.port
             )
         else:
-            raise ValueError(f"Unknown generator type: {generator_type}")
+            raise ValueError(f"Unknown generator type: {config.type}")
 
     @staticmethod
-    def get_reranker(config: dict) -> Any:
+    def get_reranker(config: Union[dict, RetrievalConfig, None] = None) -> Any:
         """
         Creates a reranker based on configuration.
         
         Args:
-            config: Configuration dictionary for the reranker
+            config: Configuration object, dict, or None (uses global config)
             
         Returns:
             Configured reranker instance
@@ -146,24 +182,36 @@ class RAGComponentFactory:
         Raises:
             ValueError: If the reranker type is unknown
         """
-        reranker_type = config.get("type", "cross_encoder")
+        # Handle different config input types
+        if config is None:
+            retrieval_config = get_config().retrieval
+            if not retrieval_config.rerank:
+                return None
+            model_name = retrieval_config.reranker_model
+            reranker_type = "cross_encoder"
+        elif isinstance(config, dict):
+            reranker_type = config.get("type", "cross_encoder")
+            model_name = config.get("model_name", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+        else:  # RetrievalConfig
+            if not config.rerank:
+                return None
+            model_name = config.reranker_model
+            reranker_type = "cross_encoder"
         
         if reranker_type == "cross_encoder":
-            return CrossEncoderReranker(
-                model_name=config.get("model_name", "cross-encoder/ms-marco-MiniLM-L-6-v2")
-            )
+            return CrossEncoderReranker(model_name=model_name)
         elif reranker_type == "simple":
             return SimpleReranker()
         else:
             raise ValueError(f"Unknown reranker type: {reranker_type}")
 
     @staticmethod
-    def create_rag_system(config: dict) -> Dict[str, Any]:
+    def create_rag_system(config: Union[dict, RAGConfiguration, None] = None) -> Dict[str, Any]:
         """
         Creates a complete RAG system with all components based on configuration.
         
         Args:
-            config: Complete configuration dictionary
+            config: Configuration object, dict, or None (uses global config)
             
         Returns:
             Dictionary containing all RAG components
@@ -172,26 +220,61 @@ class RAGComponentFactory:
             ValueError: If any component configuration is invalid
         """
         try:
-            # Create embedder first as it might be needed by vector store
-            embedder = RAGComponentFactory.get_embedder(config.get("embedder", {}))
+            # Handle different config input types
+            if config is None:
+                config = get_config()
+            elif isinstance(config, dict):
+                # Legacy support for dict config
+                embedder = RAGComponentFactory.get_embedder(config.get("embedder", {}))
+                text_splitter = RAGComponentFactory.get_text_splitter(config.get("text_splitter", {}))
+                vector_store = RAGComponentFactory.get_vector_store(config.get("vector_store", {}))
+                generator = RAGComponentFactory.get_generator(config.get("generator", {}))
+                
+                reranker = None
+                if "reranker" in config:
+                    reranker = RAGComponentFactory.get_reranker(config["reranker"])
+                
+                return {
+                    "text_splitter": text_splitter,
+                    "embedder": embedder,
+                    "vector_store": vector_store,
+                    "generator": generator,
+                    "reranker": reranker
+                }
             
-            # Create other components
-            text_splitter = RAGComponentFactory.get_text_splitter(config.get("text_splitter", {}))
-            vector_store = RAGComponentFactory.get_vector_store(config.get("vector_store", {}))
-            generator = RAGComponentFactory.get_generator(config.get("generator", {}))
-            
-            # Create reranker if specified
-            reranker = None
-            if "reranker" in config:
-                reranker = RAGComponentFactory.get_reranker(config["reranker"])
+            # Use the new configuration system
+            embedder = RAGComponentFactory.get_embedder(config.embedder)
+            text_splitter = RAGComponentFactory.get_text_splitter(config.text_splitter)
+            vector_store = RAGComponentFactory.get_vector_store(config.vector_store)
+            generator = RAGComponentFactory.get_generator(config.generator)
+            reranker = RAGComponentFactory.get_reranker(config.retrieval)
             
             return {
                 "text_splitter": text_splitter,
                 "embedder": embedder,
                 "vector_store": vector_store,
                 "generator": generator,
-                "reranker": reranker
+                "reranker": reranker,
+                "config": config  # Include config for reference
             }
             
         except Exception as e:
-            raise ValueError(f"Failed to create RAG system: {str(e)}") 
+            raise ValueError(f"Failed to create RAG system: {str(e)}")
+    
+    @staticmethod
+    def create_rag_system_from_environment(environment: str = "development") -> Dict[str, Any]:
+        """
+        Creates a RAG system configured for a specific environment
+        
+        Args:
+            environment: Environment name (development, testing, production)
+            
+        Returns:
+            Dictionary containing all RAG components configured for the environment
+        """
+        from src.config.manager import ConfigurationManager
+        
+        config_manager = ConfigurationManager(environment=environment)
+        config = config_manager.get_config()
+        
+        return RAGComponentFactory.create_rag_system(config) 

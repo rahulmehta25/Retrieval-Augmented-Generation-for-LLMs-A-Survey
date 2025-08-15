@@ -1,0 +1,205 @@
+# Secure Configuration for RAG API Server
+# IMPORTANT: This file contains sensitive configuration. Keep it secure!
+
+# Environment configuration
+environment: development  # Options: development, staging, production
+
+# Server configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  timeout: 30
+
+# SSL/TLS configuration (required for production)
+ssl:
+  enabled: false
+  keyfile: null  # Path to SSL key file
+  certfile: null  # Path to SSL certificate file
+  min_tls_version: "1.2"
+
+# API configuration
+api:
+  domain: "localhost"
+  base_path: "/api"
+  version: "v1"
+
+# JWT configuration
+jwt:
+  secret_key: "${RAG_JWT_SECRET_KEY}"  # Use environment variable
+  algorithm: "HS256"
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 7
+  issuer: "rag-system"
+
+# Database configuration
+database:
+  url: "${RAG_DATABASE_URL}"  # Use environment variable
+  pool_size: 20
+  max_overflow: 10
+  echo: false
+
+# Redis configuration (for distributed rate limiting)
+redis:
+  enabled: false
+  host: "localhost"
+  port: 6379
+  password: "${RAG_REDIS_PASSWORD}"
+  db: 0
+  ssl: true
+
+# Security configuration
+security:
+  # Rate limiting
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    requests_per_hour: 1000
+    burst_size: 10
+    strategy: "sliding_window"  # Options: fixed_window, sliding_window, token_bucket
+    persistent_storage: "data/rate_limits.json"
+  
+  # Input validation
+  validation:
+    strict_mode: true
+    log_violations: true
+    max_query_length: 1000
+    max_document_size: 10485760  # 10MB
+    allowed_file_extensions:
+      - ".txt"
+      - ".pdf"
+      - ".doc"
+      - ".docx"
+      - ".md"
+      - ".json"
+  
+  # Request limits
+  max_request_size: 10485760  # 10MB
+  request_timeout: 30  # seconds
+  
+  # Password policy
+  password:
+    min_length: 8
+    require_uppercase: true
+    require_lowercase: true
+    require_numbers: true
+    require_special: true
+    bcrypt_rounds: 12
+  
+  # Session configuration
+  session:
+    timeout: 1800  # 30 minutes
+    sliding_window: true
+    secure_cookie: true
+    same_site: "strict"
+    http_only: true
+
+# CORS configuration
+cors:
+  enabled: true
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+    - "http://localhost:5174"
+  allowed_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+  allowed_headers:
+    - "Content-Type"
+    - "Authorization"
+    - "X-API-Key"
+  expose_headers:
+    - "X-Request-ID"
+  allow_credentials: true
+  max_age: 600
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "json"
+  audit_log:
+    enabled: true
+    file: "logs/security_audit.log"
+    max_size: 104857600  # 100MB
+    backup_count: 10
+    encrypt: false
+  
+  # Error logging
+  error_log:
+    file: "logs/error.log"
+    include_stacktrace: false  # Set to false in production
+  
+  # Access logging
+  access_log:
+    enabled: true
+    file: "logs/access.log"
+    format: "combined"
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metrics_endpoint: "/metrics"
+  health_endpoint: "/health"
+  alerting:
+    enabled: true
+    webhook_url: "${RAG_ALERT_WEBHOOK}"
+    alert_threshold:
+      error_rate: 0.01  # 1%
+      response_time: 1000  # ms
+      rate_limit_violations: 10
+
+# RAG system configuration
+rag:
+  model:
+    provider: "ollama"
+    name: "gemma:2b"
+    temperature: 0.7
+    max_tokens: 512
+  
+  embeddings:
+    model: "all-MiniLM-L6-v2"
+    dimension: 384
+  
+  vector_store:
+    type: "chromadb"
+    path: "./chroma_db"
+    collection_name: "rag_collection"
+  
+  chunking:
+    strategy: "fixed_size"
+    chunk_size: 500
+    chunk_overlap: 50
+  
+  retrieval:
+    top_k: 5
+    similarity_threshold: 0.7
+
+# Feature flags
+features:
+  streaming: true
+  evaluation: true
+  human_feedback: true
+  caching: true
+  compression: true
+
+# API keys configuration (store in separate file)
+api_keys:
+  file: "config/api_keys.json"
+  rotation_days: 90
+
+# Compliance configuration
+compliance:
+  gdpr:
+    enabled: false
+    data_retention_days: 365
+    anonymize_logs: true
+  
+  pci_dss:
+    enabled: false
+    mask_credit_cards: true
+  
+  hipaa:
+    enabled: false
+    encrypt_phi: true

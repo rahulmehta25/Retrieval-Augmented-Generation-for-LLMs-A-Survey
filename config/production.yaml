@@ -1,0 +1,287 @@
+# Production Environment Configuration
+# Overrides and extends base.yaml for production environment
+
+# System settings for production
+system:
+  debug: false
+  max_workers: 8  # Higher for production load
+  timeout: 30
+  cache_enabled: true
+  cache_ttl: 7200  # Longer cache for production
+
+# Text splitter optimized for production
+text_splitter:
+  type: "semantic"  # More intelligent chunking
+  chunk_size: 512
+  chunk_overlap: 128
+  respect_sentences: true
+  respect_paragraphs: true
+
+# Embedding settings for production
+embedder:
+  cache_dir: "./prod_embedding_cache"
+  batch_size: 64  # Larger batches for efficiency
+  normalize: true
+  cache_embeddings: true
+
+# Vector store for production
+vector_store:
+  type: "hybrid"  # More sophisticated vector store
+  path: "./prod_chroma_db"
+  collection_name: "rag_production"
+  distance_metric: "cosine"
+  index_type: "HNSW"
+  ef_construction: 400  # Higher for better recall
+  ef_search: 100
+
+# Generator settings for production
+generator:
+  model_name: "llama2:7b"  # More capable model for production
+  temperature: 0.7
+  max_tokens: 512
+  top_p: 0.9
+
+# Retrieval settings for production
+retrieval:
+  strategy: "adaptive"  # Most sophisticated strategy
+  k_documents: 15  # More documents for better context
+  rerank: true
+  rerank_top_k: 8
+  use_mmr: true
+  mmr_lambda: 0.6
+
+# Context settings for production
+context:
+  max_context_length: 4096  # Larger context for production
+  compression_enabled: true
+  compression_ratio: 0.6
+  summarization_enabled: true
+  context_ordering: "relevance"
+
+# Conversation settings for production
+conversation:
+  max_history: 20
+  max_turns: 15
+  max_tokens: 4000
+  summarize_after: 8
+
+# Query optimization for production
+query_optimization:
+  enabled: true
+  rewrite: true
+  expand: true
+  decompose: true
+  use_hyde: true  # Enable advanced features
+  max_expansion: 5
+  complexity_threshold: 0.7
+
+# Performance settings for production
+performance:
+  batch_processing: true
+  batch_size: 64
+  timeout_seconds: 45
+  parallel_processing: true
+  max_workers: 8
+  use_gpu: false  # Set to true if GPU available
+  memory_fraction: 0.9
+
+# Cache settings for production
+cache:
+  embedding_cache: true
+  query_cache: true
+  response_cache: true
+  cache_backend: "redis"  # Redis for production caching
+  redis_url: "${RAG_REDIS_URL}"
+  ttl_seconds: 7200
+  max_size: 10000
+
+# Security settings for production
+security:
+  input_validation: true
+  max_input_length: 2000
+  max_query_length: 1500
+  max_document_size: 52428800  # 50MB for production
+  sanitize_outputs: true
+  block_harmful_content: true
+  audit_logging: true
+
+# Rate limiting for production
+rate_limiting:
+  enabled: true
+  requests_per_minute: 120
+  requests_per_hour: 5000
+  burst_size: 20
+  strategy: "sliding_window"
+  persistent_storage: "redis"
+
+# API settings for production
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 8
+  timeout: 45
+  cors_enabled: true
+
+# CORS for production - restrictive
+cors:
+  enabled: true
+  allowed_origins: 
+    - "https://yourapp.com"
+    - "https://app.yourcompany.com"
+  allowed_methods: ["GET", "POST"]
+  allowed_headers: ["Content-Type", "Authorization"]
+  allow_credentials: true
+  max_age: 3600
+
+# SSL/TLS Configuration
+ssl:
+  enabled: true
+  keyfile: "${RAG_SSL_KEYFILE}"
+  certfile: "${RAG_SSL_CERTFILE}"
+  min_tls_version: "1.2"
+
+# Database configuration for production
+database:
+  url: "${RAG_DATABASE_URL}"
+  pool_size: 40
+  max_overflow: 20
+  echo: false
+  ssl_mode: "require"
+
+# JWT configuration for production
+jwt:
+  secret_key: "${RAG_JWT_SECRET_KEY}"
+  algorithm: "HS256"
+  access_token_expire_minutes: 15  # Shorter for security
+  refresh_token_expire_days: 7
+  issuer: "rag-production"
+
+# Logging for production
+logging:
+  level: "INFO"
+  format: "json"
+  console_enabled: false
+  file_enabled: true
+  audit_log_enabled: true
+  max_file_size: 536870912  # 512MB
+  backup_count: 10
+  compress_backups: true
+
+# Monitoring for production
+monitoring:
+  enabled: true
+  metrics_endpoint: "/metrics"
+  health_endpoint: "/health"
+  performance_tracking: true
+  alerting_enabled: true
+  prometheus_enabled: true
+  prometheus_port: 9090
+
+# Alerting configuration
+alerting:
+  enabled: true
+  webhook_url: "${RAG_ALERT_WEBHOOK}"
+  email_enabled: true
+  smtp_server: "${RAG_SMTP_SERVER}"
+  smtp_port: 587
+  email_recipients: ["ops@yourcompany.com"]
+  thresholds:
+    error_rate_per_minute: 10
+    p95_latency_ms: 3000
+    cpu_usage_percent: 85
+    memory_usage_percent: 85
+    disk_usage_percent: 90
+
+# Evaluation for production
+evaluation:
+  enabled: true
+  ragas_enabled: true
+  ragas_metrics:
+    - "faithfulness"
+    - "answer_relevancy"
+    - "context_relevancy"
+    - "context_precision"
+  min_score_threshold: 0.7
+  log_evaluations: true
+  auto_evaluate: true
+  evaluation_interval: 50
+
+# Storage for production
+storage:
+  base_path: "./prod_rag_storage"
+  backup_enabled: true
+  backup_interval_hours: 12
+  backup_retention_days: 30
+  backup_location: "${RAG_BACKUP_LOCATION}"
+  encrypt_backups: true
+
+# Feature flags for production
+features:
+  streaming_responses: true
+  multi_language_support: false
+  voice_input: false
+  export_conversations: true
+  collaborative_filtering: true
+  active_learning: true
+  federated_search: false
+  knowledge_graph_enabled: true
+  ab_testing_enabled: true
+
+# Knowledge Graph for production
+knowledge_graph:
+  enabled: true
+  max_entities_per_doc: 100
+  max_relations_per_doc: 200
+  max_hops: 3
+  max_nodes_per_query: 50
+  neo4j_url: "${RAG_NEO4J_URL}"
+  neo4j_user: "${RAG_NEO4J_USER}"
+  neo4j_password: "${RAG_NEO4J_PASSWORD}"
+
+# A/B Testing for production
+ab_testing:
+  enabled: true
+  default_allocation: "weighted"
+  significance_level: 0.05
+  minimum_sample_size: 1000
+  experiments:
+    - name: "retrieval_strategy"
+      variants: ["hybrid", "dense_only"]
+      traffic_split: [0.7, 0.3]
+    - name: "reranker_enabled"
+      variants: [true, false]
+      traffic_split: [0.8, 0.2]
+
+# Error handling for production
+error_handling:
+  max_retries: 5
+  retry_delay: 2
+  exponential_backoff: true
+  fallback_to_simple: true
+  log_errors: true
+  alert_on_failure: true
+  circuit_breaker_enabled: true
+
+# Auto-scaling configuration
+autoscaling:
+  enabled: false  # Set to true if using container orchestration
+  min_replicas: 2
+  max_replicas: 10
+  target_cpu_utilization: 70
+  target_memory_utilization: 80
+
+# Compliance settings
+compliance:
+  gdpr_enabled: true
+  data_retention_days: 90
+  anonymize_logs: true
+  encrypt_storage: true
+  audit_trail_enabled: true
+
+# Production-specific settings
+production:
+  environment: "production"
+  deployment_version: "${RAG_DEPLOYMENT_VERSION}"
+  build_timestamp: "${RAG_BUILD_TIMESTAMP}"
+  health_check_interval: 30
+  graceful_shutdown_timeout: 30

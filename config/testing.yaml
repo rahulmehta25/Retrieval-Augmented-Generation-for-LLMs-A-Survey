@@ -1,0 +1,184 @@
+# Testing Environment Configuration
+# Overrides and extends base.yaml for testing environment
+
+# System settings for testing
+system:
+  debug: true
+  max_workers: 2  # Lower for test isolation
+  timeout: 10  # Faster timeouts for tests
+  cache_enabled: false  # Disable caching for deterministic tests
+
+# Text splitter optimized for testing
+text_splitter:
+  type: "fixed_size"  # Simpler for predictable tests
+  chunk_size: 128  # Small chunks for fast tests
+  chunk_overlap: 32
+
+# Embedding settings for testing
+embedder:
+  cache_dir: "./test_embedding_cache"
+  batch_size: 8  # Small batches for tests
+  cache_embeddings: false  # Disable for fresh tests
+
+# Vector store for testing
+vector_store:
+  type: "chromadb"
+  path: "./test_chroma_db"
+  collection_name: "rag_test_collection"
+
+# Generator settings for testing
+generator:
+  model_name: "gemma:2b"  # Lightweight for tests
+  temperature: 0.1  # Low temperature for deterministic outputs
+  max_tokens: 128  # Short responses for tests
+
+# Retrieval settings for testing
+retrieval:
+  strategy: "dense"  # Simpler strategy for tests
+  k_documents: 3  # Few documents for fast tests
+  rerank: false  # Disable for simplicity
+  use_mmr: false
+
+# Context settings for testing
+context:
+  max_context_length: 512  # Small context for tests
+  compression_enabled: false
+  summarization_enabled: false
+
+# Conversation settings for testing
+conversation:
+  memory_enabled: false  # Disable for test isolation
+  max_history: 2
+  max_turns: 3
+
+# Query optimization for testing
+query_optimization:
+  enabled: false  # Disable complex features for simple tests
+  rewrite: false
+  expand: false
+  decompose: false
+  use_hyde: false
+
+# Performance settings for testing
+performance:
+  batch_processing: false  # Process one at a time for tests
+  batch_size: 1
+  timeout_seconds: 10
+  parallel_processing: false
+  max_workers: 1
+
+# Cache settings for testing
+cache:
+  embedding_cache: false
+  query_cache: false
+  response_cache: false
+  cache_backend: "in_memory"
+  ttl_seconds: 60  # Very short TTL
+  max_size: 10
+
+# Security settings for testing
+security:
+  input_validation: true
+  max_input_length: 500  # Smaller for tests
+  audit_logging: false
+  block_harmful_content: false  # Allow for negative testing
+
+# Rate limiting for testing
+rate_limiting:
+  enabled: false  # Disabled for testing
+
+# API settings for testing
+api:
+  host: "127.0.0.1"
+  port: 8001  # Different port to avoid conflicts
+  workers: 1
+  timeout: 10
+
+# CORS for testing - permissive
+cors:
+  enabled: true
+  allowed_origins: ["*"]
+  allowed_methods: ["GET", "POST", "PUT", "DELETE"]
+
+# Logging for testing
+logging:
+  level: "DEBUG"
+  format: "simple"
+  console_enabled: true
+  file_enabled: false  # No log files during tests
+
+# Monitoring for testing
+monitoring:
+  enabled: false  # Disabled for tests
+  performance_tracking: false
+
+# Evaluation for testing
+evaluation:
+  enabled: true
+  ragas_enabled: false  # Disable heavy evaluation during tests
+  log_evaluations: false
+
+# Storage for testing
+storage:
+  base_path: "./test_rag_storage"
+  backup_enabled: false
+
+# Feature flags for testing
+features:
+  streaming_responses: false  # Simpler for tests
+  multi_language_support: false
+  voice_input: false
+  export_conversations: false
+  collaborative_filtering: false
+  active_learning: false
+  federated_search: false
+  knowledge_graph_enabled: false
+  ab_testing_enabled: false
+
+# Error handling for testing
+error_handling:
+  max_retries: 1  # Fail fast in tests
+  retry_delay: 0.1
+  fallback_to_simple: false  # Don't mask failures
+  log_errors: true
+  alert_on_failure: false
+
+# Testing-specific settings
+testing:
+  environment: "test"
+  mock_llm: false  # Set to true for unit tests that don't need real LLM
+  mock_embeddings: false  # Set to true for unit tests
+  mock_vector_store: false  # Set to true for unit tests
+  test_data_path: "./test_data"
+  fixtures_path: "./tests/fixtures"
+  deterministic_mode: true  # For reproducible tests
+  fast_mode: true  # Skip expensive operations
+  cleanup_after_test: true  # Clean up test artifacts
+  
+# Test database settings
+test_database:
+  use_in_memory: true  # Use in-memory DB for tests
+  reset_between_tests: true
+  
+# Test document settings
+test_documents:
+  max_documents: 10  # Limit documents for fast tests
+  sample_documents_path: "./tests/fixtures/sample_documents.json"
+  
+# Mock settings for testing
+mocks:
+  llm_responses: "./tests/fixtures/mock_llm_responses.json"
+  embedding_responses: "./tests/fixtures/mock_embeddings.json"
+  enable_network_mocking: true
+  
+# Performance test settings
+performance_tests:
+  max_response_time_ms: 1000
+  max_memory_usage_mb: 256
+  max_cpu_usage_percent: 50
+  
+# Integration test settings
+integration_tests:
+  real_llm_enabled: false  # Set to true for integration tests
+  real_embeddings_enabled: false
+  external_services_timeout: 5

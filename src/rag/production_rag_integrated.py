@@ -277,3 +277,126 @@ class ProductionRAGSystem:
     def shutdown(self):
         """Graceful shutdown using orchestrator"""
         return self.orchestrator.shutdown()
+
+# Backward compatibility alias for legacy code
+# DEPRECATED: Use ProductionRAGSystem instead
+class ProductionRAG(ProductionRAGSystem):
+    """
+    DEPRECATED: Legacy ProductionRAG class
+    
+    This class is provided for backward compatibility only.
+    Please migrate to ProductionRAGSystem which provides the same API
+    but with improved service-oriented architecture.
+    
+    Migration path:
+    1. Replace ProductionRAG with ProductionRAGSystem
+    2. Update configuration to use ProductionConfig instead of YAML files
+    3. Use the new service-based architecture for better maintainability
+    """
+    
+    def __init__(self, config_path: Optional[str] = None):
+        """
+        Initialize legacy ProductionRAG with backward compatibility
+        
+        Args:
+            config_path: Path to legacy YAML config file (deprecated)
+        """
+        # Show deprecation warning
+        import warnings
+        warnings.warn(
+            "ProductionRAG class is deprecated. Use ProductionRAGSystem instead. "
+            "This legacy interface will be removed in a future version.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
+        # Convert legacy config if provided
+        if config_path:
+            legacy_config = self._load_legacy_config(config_path)
+            modern_config = self._convert_legacy_config(legacy_config)
+        else:
+            modern_config = ProductionConfig()
+        
+        # Initialize with modern system
+        super().__init__(modern_config)
+    
+    def _load_legacy_config(self, config_path: str) -> Dict[str, Any]:
+        """Load legacy YAML configuration"""
+        import yaml
+        try:
+            with open(config_path, 'r') as f:
+                return yaml.safe_load(f)
+        except Exception:
+            return {}
+    
+    def _convert_legacy_config(self, legacy_config: Dict[str, Any]) -> ProductionConfig:
+        """Convert legacy YAML config to modern ProductionConfig"""
+        
+        # Extract settings from legacy config structure
+        embedding_config = legacy_config.get('embedding', {})
+        retrieval_config = legacy_config.get('retrieval', {})
+        generation_config = legacy_config.get('generation', {})
+        
+        return ProductionConfig(
+            embedding_model=embedding_config.get('model', 'all-MiniLM-L6-v2'),
+            reranker_model=retrieval_config.get('reranker_model', 'cross-encoder/ms-marco-MiniLM-L-6-v2'),
+            llm_model=generation_config.get('model', 'gemma:2b'),
+            retrieval_method=retrieval_config.get('method', 'adaptive'),
+            top_k=retrieval_config.get('k_documents', 10),
+            use_reranking=retrieval_config.get('rerank', True),
+            enable_query_optimization=legacy_config.get('query_optimization', {}).get('enable', True),
+            enable_knowledge_graph=legacy_config.get('knowledge_graph', {}).get('enable', True),
+            enable_conversation_memory=legacy_config.get('conversation', {}).get('enable', True),
+            enable_context_compression=legacy_config.get('context_compression', {}).get('enable', True),
+            enable_monitoring=legacy_config.get('monitoring', {}).get('enable', True)
+        )
+    
+    # Legacy API methods for backward compatibility
+    def index_documents(self, documents: List[str], metadata: Optional[List[Dict]] = None):
+        """
+        DEPRECATED: Legacy index_documents method
+        
+        Please use index_document() for individual documents instead.
+        """
+        warnings.warn(
+            "index_documents() is deprecated. Use index_document() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
+        for i, doc_content in enumerate(documents):
+            doc_metadata = metadata[i] if metadata and i < len(metadata) else {}
+            self.index_document(
+                content=doc_content,
+                doc_id=f"legacy_doc_{i}",
+                metadata=doc_metadata
+            )
+    
+    def query(self, request, use_cache: bool = True, evaluate: bool = False):
+        """
+        DEPRECATED: Legacy query method with different signature
+        
+        This method maintains backward compatibility with the old ProductionRAG API.
+        """
+        # Handle both legacy RAGRequest objects and simple strings
+        if hasattr(request, 'query'):
+            # RAGRequest object
+            query_text = request.query
+            session_id = getattr(request, 'session_id', None)
+            user_id = getattr(request, 'user_id', None)
+        else:
+            # Simple string query
+            query_text = str(request)
+            session_id = None
+            user_id = None
+        
+        # Call modern query method
+        response = super().query(
+            query=query_text,
+            session_id=session_id,
+            user_id=user_id,
+            evaluate=evaluate
+        )
+        
+        # Return in legacy RAGResponse format if needed
+        return response

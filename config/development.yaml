@@ -1,0 +1,124 @@
+# Development Environment Configuration
+# Overrides and extends base.yaml for development environment
+
+# System overrides for development
+system:
+  debug: true
+  max_workers: 2  # Lower for development
+  timeout: 60  # Higher timeout for debugging
+
+# Text splitter optimized for development
+text_splitter:
+  chunk_size: 256  # Smaller chunks for faster processing
+  chunk_overlap: 64
+
+# Embedding settings for development
+embedder:
+  cache_dir: "./dev_embedding_cache"
+  batch_size: 16  # Smaller batches for development
+
+# Vector store for development
+vector_store:
+  path: "./dev_chroma_db"
+  collection_name: "rag_dev_collection"
+
+# Generator settings for development
+generator:
+  model_name: "gemma:2b"  # Lightweight model for dev
+  temperature: 0.8  # Slightly higher for creative responses
+  max_tokens: 256  # Lower for faster development
+
+# Retrieval settings for development
+retrieval:
+  k_documents: 5  # Fewer documents for faster processing
+  rerank_top_k: 3
+
+# Context settings for development
+context:
+  max_context_length: 1024  # Smaller context for dev
+  compression_enabled: false  # Disable for simplicity
+
+# Conversation settings for development
+conversation:
+  max_history: 5  # Shorter history for dev
+  max_turns: 5
+
+# Performance settings for development
+performance:
+  batch_size: 16
+  max_workers: 2
+  parallel_processing: false  # Easier debugging
+
+# Cache settings for development
+cache:
+  cache_backend: "in_memory"  # Simple in-memory cache
+  ttl_seconds: 1800  # Shorter TTL
+  max_size: 500
+
+# Security settings for development
+security:
+  audit_logging: true  # Enable for debugging
+  max_input_length: 2000  # More lenient for testing
+
+# Rate limiting for development
+rate_limiting:
+  enabled: false  # Disabled for development convenience
+
+# API settings for development
+api:
+  host: "127.0.0.1"
+  port: 8000
+  workers: 1  # Single worker for development
+
+# CORS for development - more permissive
+cors:
+  allowed_origins: ["*"]  # Allow all origins in development
+
+# Logging for development
+logging:
+  level: "DEBUG"
+  console_enabled: true
+  file_enabled: true
+  format: "detailed"
+
+# Monitoring for development
+monitoring:
+  enabled: true
+  performance_tracking: true
+  log_level: "DEBUG"
+
+# Evaluation for development
+evaluation:
+  enabled: true
+  ragas_enabled: false  # Disabled by default, can be enabled for testing
+  log_evaluations: true
+
+# Storage for development
+storage:
+  base_path: "./dev_rag_storage"
+  backup_enabled: false  # No backups needed in dev
+
+# Feature flags for development
+features:
+  streaming_responses: true  # Enable for testing
+  export_conversations: true
+  ab_testing_enabled: false  # Usually disabled in dev
+
+# Development-specific settings
+development:
+  hot_reload: true
+  verbose_logging: true
+  mock_llm: false
+  save_intermediate_results: true
+  profiling_enabled: false
+  test_mode: false
+
+# Error handling for development
+error_handling:
+  max_retries: 1  # Fewer retries for faster feedback
+  log_errors: true
+  alert_on_failure: false
+
+# Query optimization for development
+query_optimization:
+  use_hyde: false  # Disable complex features for simpler debugging

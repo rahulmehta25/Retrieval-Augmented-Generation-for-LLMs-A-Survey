@@ -1,9 +1,59 @@
 """
-Production-Grade RAG System with all advanced features
+DEPRECATED: Legacy Production-Grade RAG System
+
+⚠️  WARNING: This module is DEPRECATED and will be removed in a future version.
+
+This file contains a legacy monolithic RAG implementation that has been superseded by
+the modern service-oriented architecture in production_rag_integrated.py.
+
+MIGRATION GUIDE:
+================
+
+OLD CODE:
+---------
+from src.rag.production_rag import ProductionRAG, RAGRequest, RAGResponse
+
+rag = ProductionRAG("config.yaml")
+request = RAGRequest(query="What is machine learning?")
+response = rag.query(request)
+
+NEW CODE (Recommended):
+----------------------
+from src.rag.production_rag_integrated import ProductionRAGSystem, ProductionConfig
+
+# Modern approach with structured configuration
+config = ProductionConfig(
+    enable_query_optimization=True,
+    enable_knowledge_graph=True,
+    enable_conversation_memory=True
+)
+rag = ProductionRAGSystem(config)
+response = rag.query("What is machine learning?")
+
+BACKWARD COMPATIBILITY:
+======================
+If you need to maintain legacy code temporarily, you can use:
+
+from src.rag.production_rag_integrated import ProductionRAG  # Deprecated alias
+
+This will show deprecation warnings but maintain compatibility.
+
+BENEFITS OF MIGRATING:
+=====================
+- Service-oriented architecture for better maintainability
+- Dependency injection for easier testing
+- Advanced features (knowledge graphs, semantic compression)
+- Better monitoring and health checks
+- Improved performance and scalability
+- Modern configuration system
+
+DO NOT USE THIS FILE FOR NEW PROJECTS!
+Use production_rag_integrated.py instead.
 """
 
 import logging
 import time
+import warnings
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 import yaml
@@ -12,6 +62,15 @@ import hashlib
 from pathlib import Path
 from collections import deque
 import numpy as np
+
+# Issue deprecation warning when module is imported
+warnings.warn(
+    "The production_rag module is deprecated and will be removed in a future version. "
+    "Please migrate to production_rag_integrated.ProductionRAGSystem for new projects. "
+    "See module docstring for migration guide.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 # Import our production components
 from src.retrieval.hybrid_retriever import HybridRetriever, SmartChunker

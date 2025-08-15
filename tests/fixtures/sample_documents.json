@@ -1,0 +1,135 @@
+{
+  "documents": [
+    {
+      "id": "doc_ml_intro",
+      "title": "Introduction to Machine Learning",
+      "content": "Machine learning is a subset of artificial intelligence (AI) that provides systems the ability to automatically learn and improve from experience without being explicitly programmed. Machine learning focuses on the development of computer programs that can access data and use it to learn for themselves.",
+      "metadata": {
+        "source": "ml_textbook.pdf",
+        "page": 1,
+        "section": "introduction",
+        "author": "Dr. Jane Smith",
+        "date": "2024-01-15"
+      }
+    },
+    {
+      "id": "doc_neural_networks",
+      "title": "Neural Networks Fundamentals",
+      "content": "Neural networks are computing systems vaguely inspired by the biological neural networks that constitute animal brains. Such systems learn to perform tasks by considering examples, generally without being programmed with task-specific rules. For example, in image recognition, they might learn to identify images that contain cats by analyzing example images that have been manually labeled as 'cat' or 'no cat'.",
+      "metadata": {
+        "source": "neural_networks_guide.pdf",
+        "page": 5,
+        "section": "fundamentals",
+        "author": "Prof. John Doe",
+        "date": "2024-02-01"
+      }
+    },
+    {
+      "id": "doc_deep_learning",
+      "title": "Deep Learning Overview",
+      "content": "Deep learning is part of a broader family of machine learning methods based on artificial neural networks with representation learning. Learning can be supervised, semi-supervised or unsupervised. Deep learning architectures such as deep neural networks, deep belief networks, recurrent neural networks and convolutional neural networks have been applied to fields including computer vision, speech recognition, natural language processing, and machine translation.",
+      "metadata": {
+        "source": "deep_learning_handbook.pdf",
+        "page": 12,
+        "section": "overview",
+        "author": "Dr. Alice Johnson",
+        "date": "2024-01-20"
+      }
+    },
+    {
+      "id": "doc_nlp_basics",
+      "title": "Natural Language Processing Basics",
+      "content": "Natural language processing (NLP) is a subfield of linguistics, computer science, and artificial intelligence concerned with the interactions between computers and human language, in particular how to program computers to process and analyze large amounts of natural language data. The goal is a computer capable of understanding the contents of documents, including the contextual nuances of the language within them.",
+      "metadata": {
+        "source": "nlp_fundamentals.pdf",
+        "page": 3,
+        "section": "basics",
+        "author": "Dr. Bob Wilson",
+        "date": "2024-01-25"
+      }
+    },
+    {
+      "id": "doc_ai_applications",
+      "title": "AI Applications in Healthcare",
+      "content": "Artificial intelligence in healthcare is the use of algorithms and software to approximate human cognition in the analysis, interpretation, and comprehension of complicated medical and healthcare data. AI can be used for medical imaging analysis, drug discovery, personalized treatment plans, virtual health assistants, and predictive analytics for patient outcomes. The technology has shown promising results in improving diagnostic accuracy and reducing healthcare costs.",
+      "metadata": {
+        "source": "ai_healthcare_review.pdf",
+        "page": 8,
+        "section": "applications",
+        "author": "Dr. Sarah Lee",
+        "date": "2024-02-10"
+      }
+    }
+  ],
+  "queries": [
+    {
+      "id": "query_ml_definition",
+      "text": "What is machine learning?",
+      "intent": "definition",
+      "complexity": 0.3,
+      "expected_contexts": ["doc_ml_intro"],
+      "ground_truth": "Machine learning is a subset of artificial intelligence that enables systems to automatically learn and improve from experience without being explicitly programmed."
+    },
+    {
+      "id": "query_neural_networks",
+      "text": "How do neural networks work?",
+      "intent": "explanation",
+      "complexity": 0.7,
+      "expected_contexts": ["doc_neural_networks", "doc_deep_learning"],
+      "ground_truth": "Neural networks are computing systems inspired by biological neural networks that learn to perform tasks by considering examples rather than being programmed with specific rules."
+    },
+    {
+      "id": "query_ai_healthcare",
+      "text": "What are the applications of AI in healthcare?",
+      "intent": "enumeration",
+      "complexity": 0.6,
+      "expected_contexts": ["doc_ai_applications"],
+      "ground_truth": "AI applications in healthcare include medical imaging analysis, drug discovery, personalized treatment plans, virtual health assistants, and predictive analytics for patient outcomes."
+    },
+    {
+      "id": "query_complex_ml",
+      "text": "How does deep learning differ from traditional machine learning, and what are its applications in natural language processing?",
+      "intent": "comparison",
+      "complexity": 0.9,
+      "expected_contexts": ["doc_deep_learning", "doc_nlp_basics", "doc_ml_intro"],
+      "ground_truth": "Deep learning uses artificial neural networks with multiple layers for representation learning, while traditional ML often requires manual feature engineering. In NLP, deep learning has been successfully applied to speech recognition, natural language processing, and machine translation."
+    }
+  ],
+  "conversation_scenarios": [
+    {
+      "id": "scenario_progressive_learning",
+      "turns": [
+        {
+          "user": "What is machine learning?",
+          "assistant": "Machine learning is a subset of artificial intelligence that enables systems to automatically learn and improve from experience without being explicitly programmed.",
+          "contexts_used": ["doc_ml_intro"]
+        },
+        {
+          "user": "Can you give me more details about it?",
+          "assistant": "Machine learning focuses on developing computer programs that can access data and use it to learn patterns automatically. It includes various approaches like supervised learning, unsupervised learning, and reinforcement learning.",
+          "contexts_used": ["doc_ml_intro", "doc_neural_networks"]
+        },
+        {
+          "user": "What about neural networks?",
+          "assistant": "Neural networks are a key component of machine learning, inspired by biological neural networks. They learn to perform tasks by analyzing examples rather than following explicitly programmed rules.",
+          "contexts_used": ["doc_neural_networks", "doc_deep_learning"]
+        }
+      ]
+    },
+    {
+      "id": "scenario_domain_switch",
+      "turns": [
+        {
+          "user": "Tell me about AI applications in healthcare",
+          "assistant": "AI in healthcare includes medical imaging analysis, drug discovery, personalized treatment plans, virtual health assistants, and predictive analytics for patient outcomes.",
+          "contexts_used": ["doc_ai_applications"]
+        },
+        {
+          "user": "How does natural language processing work?",
+          "assistant": "Natural language processing is a field that focuses on enabling computers to understand and process human language, including analyzing large amounts of text data and understanding contextual nuances.",
+          "contexts_used": ["doc_nlp_basics"]
+        }
+      ]
+    }
+  ]
+}
