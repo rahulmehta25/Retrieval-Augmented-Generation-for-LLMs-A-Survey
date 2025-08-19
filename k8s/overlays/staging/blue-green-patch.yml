@@ -1,0 +1,190 @@
+# Blue-Green Deployment Services for Staging
+
+# Active service (points to current live deployment)
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-app-active
+  namespace: rag-staging
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: active-service
+    deployment-type: blue-green
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  - port: 8080
+    targetPort: 8000
+    protocol: TCP
+    name: api
+  selector:
+    app: rag-frontend
+    color: blue  # Default to blue, will be switched during deployment
+
+---
+# Canary service (for testing new deployment before full switch)
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-app-canary
+  namespace: rag-staging
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: canary-service
+    deployment-type: blue-green
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  - port: 8080
+    targetPort: 8000
+    protocol: TCP
+    name: api
+  selector:
+    app: rag-frontend
+    color: green  # Points to the candidate deployment
+
+---
+# Blue backend service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-backend-blue
+  namespace: rag-staging
+  labels:
+    app.kubernetes.io/name: rag-backend
+    app.kubernetes.io/component: blue-service
+    color: blue
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: rag-backend
+    color: blue
+
+---
+# Green backend service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-backend-green
+  namespace: rag-staging
+  labels:
+    app.kubernetes.io/name: rag-backend
+    app.kubernetes.io/component: green-service
+    color: green
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: rag-backend
+    color: green
+
+---
+# Blue frontend service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-frontend-blue
+  namespace: rag-staging
+  labels:
+    app.kubernetes.io/name: rag-frontend
+    app.kubernetes.io/component: blue-service
+    color: blue
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: rag-frontend
+    color: blue
+
+---
+# Green frontend service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-frontend-green
+  namespace: rag-staging
+  labels:
+    app.kubernetes.io/name: rag-frontend
+    app.kubernetes.io/component: green-service
+    color: green
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: rag-frontend
+    color: green
+
+---
+# Ingress for staging with blue-green support
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rag-staging-ingress
+  namespace: rag-staging
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    # Blue-green traffic splitting (can be modified during deployment)
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Add deployment color header for debugging
+      add_header X-Deployment-Color $upstream_addr always;
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - rag-staging.your-domain.com
+    - api-staging.rag.your-domain.com
+    secretName: rag-staging-tls-cert
+  rules:
+  # Frontend
+  - host: rag-staging.your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: rag-app-active
+            port:
+              number: 80
+  # Backend API
+  - host: api-staging.rag.your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: rag-app-active
+            port:
+              number: 8080

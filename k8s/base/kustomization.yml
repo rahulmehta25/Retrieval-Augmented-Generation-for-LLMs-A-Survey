@@ -1,0 +1,86 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: rag-base
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: base
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/part-of: rag-system
+  app.kubernetes.io/managed-by: kustomize
+
+# Namespace for all resources
+namespace: rag-system
+
+# Resources to include
+resources:
+- namespace.yml
+- configmap.yml
+- secret.yml
+- backend-deployment.yml
+- frontend-deployment.yml
+- chromadb-deployment.yml
+- hpa.yml
+- ingress.yml
+- monitoring.yml
+- networkpolicy.yml
+
+# Image transformations
+images:
+- name: ghcr.io/your-org/rag-backend
+  newTag: BACKEND_IMAGE_TAG
+- name: ghcr.io/your-org/rag-frontend
+  newTag: FRONTEND_IMAGE_TAG
+
+# Config map generators for additional configuration
+configMapGenerator:
+- name: rag-app-config
+  files:
+  - app.properties
+  - logging.conf
+
+# Secret generators
+secretGenerator:
+- name: rag-app-secrets
+  envs:
+  - secrets.env
+  type: Opaque
+
+# Patches for common modifications
+patchesStrategicMerge:
+- patches/resource-limits.yml
+
+# JSON patches for fine-grained modifications
+patchesJson6902:
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: rag-backend
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: DEPLOYMENT_TIMESTAMP
+        value: "TIMESTAMP_PLACEHOLDER"
+
+# Replicas for different environments (overridden in overlays)
+replicas:
+- name: rag-backend
+  count: 3
+- name: rag-frontend
+  count: 2
+- name: chromadb
+  count: 1
+
+# Resource name prefix/suffix
+namePrefix: ""
+nameSuffix: ""
+
+# Annotations to add to all resources
+commonAnnotations:
+  app.kubernetes.io/version: "1.0.0"
+  deployment.kubernetes.io/revision: "1"

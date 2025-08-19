@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-backend
+  namespace: rag-dev
+spec:
+  template:
+    spec:
+      containers:
+      - name: rag-backend
+        # Development-specific environment variables
+        env:
+        - name: ENVIRONMENT
+          value: "development"
+        - name: DEBUG
+          value: "true"
+        - name: PYTHONDONTWRITEBYTECODE
+          value: "0"  # Allow bytecode for faster dev restarts
+        - name: RELOAD
+          value: "true"  # Enable auto-reload for development
+        # More lenient probes for development
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+        # Volume mounts for development (enable code hot-reload if needed)
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: cache-volume
+          mountPath: /app/embedding_cache
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-frontend
+  namespace: rag-dev
+spec:
+  template:
+    spec:
+      containers:
+      - name: rag-frontend
+        env:
+        - name: NODE_ENV
+          value: "development"
+        # More lenient probes for development
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+
+---
+# Development-specific service with NodePort for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-frontend-external
+  namespace: rag-dev
+  labels:
+    app.kubernetes.io/name: rag-frontend
+    app.kubernetes.io/component: external-service
+spec:
+  type: NodePort
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 30080
+    protocol: TCP
+    name: http
+  selector:
+    app: rag-frontend
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-backend-external
+  namespace: rag-dev
+  labels:
+    app.kubernetes.io/name: rag-backend
+    app.kubernetes.io/component: external-service
+spec:
+  type: NodePort
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 30081
+    protocol: TCP
+    name: http
+  selector:
+    app: rag-backend

@@ -1,0 +1,185 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: rag-production
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: production
+    environment: production
+
+# Reference to base configuration
+bases:
+- ../../base
+
+# Namespace override for production
+namespace: rag-prod
+
+# Common labels for production
+commonLabels:
+  environment: production
+  deployment-type: blue-green
+  tier: production
+
+# Common annotations for production
+commonAnnotations:
+  environment: production
+  managed-by: kustomize
+  deployment-timestamp: "TIMESTAMP_PLACEHOLDER"
+  deployment-strategy: blue-green
+  security.policy: strict
+
+# Resource name suffix for production
+nameSuffix: "-COLOR_LABEL"  # Will be replaced with blue/green
+
+# Images with production tags (stable versions)
+images:
+- name: ghcr.io/your-org/rag-backend
+  newTag: BACKEND_IMAGE_TAG
+- name: ghcr.io/your-org/rag-frontend
+  newTag: FRONTEND_IMAGE_TAG
+
+# Replicas for production (full scale)
+replicas:
+- name: rag-backend
+  count: 5
+- name: rag-frontend
+  count: 3
+- name: chromadb
+  count: 1  # Note: For true HA, consider ChromaDB clustering
+
+# ConfigMap patches for production environment
+patchesStrategicMerge:
+- configmap-patch.yml
+- blue-green-patch.yml
+- production-security.yml
+
+# Resource patches for production
+patchesJson6902:
+# Add color label for blue-green deployments
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: rag-backend
+  patch: |-
+    - op: add
+      path: /spec/template/metadata/labels/color
+      value: COLOR_LABEL
+    - op: add
+      path: /spec/selector/matchLabels/color
+      value: COLOR_LABEL
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "1Gi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "2Gi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "500m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "2000m"
+
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: rag-frontend
+  patch: |-
+    - op: add
+      path: /spec/template/metadata/labels/color
+      value: COLOR_LABEL
+    - op: add
+      path: /spec/selector/matchLabels/color
+      value: COLOR_LABEL
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "256Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "512Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "200m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "1000m"
+
+# Production ChromaDB with higher resources
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: chromadb
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "1Gi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "2Gi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "500m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "1000m"
+
+# HPA patches for production (aggressive scaling)
+- target:
+    group: autoscaling
+    version: v2
+    kind: HorizontalPodAutoscaler
+    name: rag-backend-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 5
+    - op: replace
+      path: /spec/maxReplicas
+      value: 50
+    - op: replace
+      path: /spec/metrics/0/resource/target/averageUtilization
+      value: 60
+    - op: replace
+      path: /spec/metrics/1/resource/target/averageUtilization
+      value: 70
+
+- target:
+    group: autoscaling
+    version: v2
+    kind: HorizontalPodAutoscaler
+    name: rag-frontend-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 3
+    - op: replace
+      path: /spec/maxReplicas
+      value: 20
+    - op: replace
+      path: /spec/metrics/0/resource/target/averageUtilization
+      value: 60
+
+# Production storage - larger volumes
+- target:
+    group: ""
+    version: v1
+    kind: PersistentVolumeClaim
+    name: rag-data-pvc
+  patch: |-
+    - op: replace
+      path: /spec/resources/requests/storage
+      value: "50Gi"
+
+- target:
+    group: ""
+    version: v1
+    kind: PersistentVolumeClaim
+    name: chromadb-pvc
+  patch: |-
+    - op: replace
+      path: /spec/resources/requests/storage
+      value: "100Gi"

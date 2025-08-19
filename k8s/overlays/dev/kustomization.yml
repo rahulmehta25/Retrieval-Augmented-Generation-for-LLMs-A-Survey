@@ -1,0 +1,112 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: rag-dev
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: dev
+    environment: development
+
+# Reference to base configuration
+bases:
+- ../../base
+
+# Namespace override for dev
+namespace: rag-dev
+
+# Common labels for development
+commonLabels:
+  environment: dev
+  deployment-type: development
+
+# Common annotations for development
+commonAnnotations:
+  environment: development
+  managed-by: kustomize
+  deployment-timestamp: "TIMESTAMP_PLACEHOLDER"
+
+# Resource name suffix for dev
+nameSuffix: "-dev"
+
+# Images with dev tags
+images:
+- name: ghcr.io/your-org/rag-backend
+  newTag: BACKEND_IMAGE_TAG
+- name: ghcr.io/your-org/rag-frontend  
+  newTag: FRONTEND_IMAGE_TAG
+
+# Replicas for development (smaller scale)
+replicas:
+- name: rag-backend
+  count: 2
+- name: rag-frontend
+  count: 1
+- name: chromadb
+  count: 1
+
+# ConfigMap patches for dev environment
+patchesStrategicMerge:
+- configmap-patch.yml
+- deployment-patch.yml
+
+# Resource patches for development
+patchesJson6902:
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: rag-backend
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "256Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "512Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "100m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "500m"
+
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: rag-frontend
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "64Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "128Mi"
+
+# HPA patches for dev (lower thresholds)
+- target:
+    group: autoscaling
+    version: v2
+    kind: HorizontalPodAutoscaler
+    name: rag-backend-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 1
+    - op: replace
+      path: /spec/maxReplicas
+      value: 5
+
+- target:
+    group: autoscaling
+    version: v2
+    kind: HorizontalPodAutoscaler
+    name: rag-frontend-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 1
+    - op: replace
+      path: /spec/maxReplicas
+      value: 3

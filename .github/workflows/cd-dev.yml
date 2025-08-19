@@ -1,0 +1,203 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_BACKEND: ${{ github.repository }}/rag-backend
+  IMAGE_NAME_FRONTEND: ${{ github.repository }}/rag-frontend
+
+jobs:
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      backend-image: ${{ steps.meta-backend.outputs.tags }}
+      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
+      backend-digest: ${{ steps.build-backend.outputs.digest }}
+      frontend-digest: ${{ steps.build-frontend.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Backend build and push
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push backend image
+        id: build-backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./rag-from-scratch
+          file: ./rag-from-scratch/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      # Frontend build and push
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push frontend image
+        id: build-frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./glass-scroll-scribe
+          file: ./glass-scroll-scribe/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  deploy-to-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment:
+      name: development
+      url: https://rag-dev.your-domain.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_DEV }}
+
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags in deployment files
+          sed -i "s|BACKEND_IMAGE_TAG|${{ needs.build-and-push.outputs.backend-image }}|g" k8s/overlays/dev/kustomization.yml
+          sed -i "s|FRONTEND_IMAGE_TAG|${{ needs.build-and-push.outputs.frontend-image }}|g" k8s/overlays/dev/kustomization.yml
+          
+          # Apply Kubernetes manifests
+          kubectl apply -k k8s/overlays/dev/
+          
+          # Wait for rollout to complete
+          kubectl rollout status deployment/rag-backend -n rag-dev --timeout=300s
+          kubectl rollout status deployment/rag-frontend -n rag-dev --timeout=300s
+
+      - name: Run smoke tests
+        run: |
+          # Wait for services to be ready
+          kubectl wait --for=condition=ready pod -l app=rag-backend -n rag-dev --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=rag-frontend -n rag-dev --timeout=300s
+          
+          # Get service URLs
+          BACKEND_URL=$(kubectl get svc rag-backend -n rag-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          FRONTEND_URL=$(kubectl get svc rag-frontend -n rag-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          
+          # Run health checks
+          curl -f http://$BACKEND_URL:8000/health || exit 1
+          curl -f http://$FRONTEND_URL:3000 || exit 1
+
+      - name: Update deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment to dev successful"
+            kubectl annotate deployment/rag-backend -n rag-dev deployment.kubernetes.io/revision-history-limit=10
+            kubectl annotate deployment/rag-frontend -n rag-dev deployment.kubernetes.io/revision-history-limit=10
+          else
+            echo "❌ Deployment to dev failed"
+            # Trigger rollback if needed
+            kubectl rollout undo deployment/rag-backend -n rag-dev
+            kubectl rollout undo deployment/rag-frontend -n rag-dev
+          fi
+
+  notify-deployment:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy-to-dev]
+    if: always()
+
+    steps:
+      - name: Send Slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ needs.deploy-to-dev.result }}
+          channel: '#deployments'
+          text: |
+            🚀 Development Deployment Status: ${{ needs.deploy-to-dev.result }}
+            
+            📦 Images:
+            • Backend: ${{ needs.build-and-push.outputs.backend-image }}
+            • Frontend: ${{ needs.build-and-push.outputs.frontend-image }}
+            
+            🔗 Environment: https://rag-dev.your-domain.com
+            📊 Commit: ${{ github.sha }}
+            👤 Author: ${{ github.actor }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Send email notification on failure
+        if: needs.deploy-to-dev.result == 'failure'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "🚨 RAG System Deployment Failed - Development"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: RAG System CI/CD
+          body: |
+            The deployment to development environment has failed.
+            
+            Details:
+            - Commit: ${{ github.sha }}
+            - Branch: ${{ github.ref_name }}
+            - Author: ${{ github.actor }}
+            - Workflow: ${{ github.workflow }}
+            
+            Please check the GitHub Actions logs for more details:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

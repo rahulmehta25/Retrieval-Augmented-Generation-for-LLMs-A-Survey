@@ -1,0 +1,128 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: rag-staging
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: staging
+    environment: staging
+
+# Reference to base configuration
+bases:
+- ../../base
+
+# Namespace override for staging
+namespace: rag-staging
+
+# Common labels for staging
+commonLabels:
+  environment: staging
+  deployment-type: blue-green
+
+# Common annotations for staging
+commonAnnotations:
+  environment: staging
+  managed-by: kustomize
+  deployment-timestamp: "TIMESTAMP_PLACEHOLDER"
+  deployment-strategy: blue-green
+
+# Resource name suffix for staging
+nameSuffix: "-COLOR_LABEL"  # Will be replaced with blue/green
+
+# Images with staging tags
+images:
+- name: ghcr.io/your-org/rag-backend
+  newTag: BACKEND_IMAGE_TAG
+- name: ghcr.io/your-org/rag-frontend
+  newTag: FRONTEND_IMAGE_TAG
+
+# Replicas for staging (production-like but smaller)
+replicas:
+- name: rag-backend
+  count: 2
+- name: rag-frontend
+  count: 2
+- name: chromadb
+  count: 1
+
+# ConfigMap patches for staging environment
+patchesStrategicMerge:
+- configmap-patch.yml
+- blue-green-patch.yml
+
+# Resource patches for staging
+patchesJson6902:
+# Add color label for blue-green deployments
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: rag-backend
+  patch: |-
+    - op: add
+      path: /spec/template/metadata/labels/color
+      value: COLOR_LABEL
+    - op: add
+      path: /spec/selector/matchLabels/color
+      value: COLOR_LABEL
+
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: rag-frontend
+  patch: |-
+    - op: add
+      path: /spec/template/metadata/labels/color
+      value: COLOR_LABEL
+    - op: add
+      path: /spec/selector/matchLabels/color
+      value: COLOR_LABEL
+
+# HPA patches for staging
+- target:
+    group: autoscaling
+    version: v2
+    kind: HorizontalPodAutoscaler
+    name: rag-backend-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 2
+    - op: replace
+      path: /spec/maxReplicas
+      value: 10
+
+- target:
+    group: autoscaling
+    version: v2
+    kind: HorizontalPodAutoscaler
+    name: rag-frontend-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 2
+    - op: replace
+      path: /spec/maxReplicas
+      value: 6
+
+# Add PodDisruptionBudgets for staging
+- target:
+    group: policy
+    version: v1
+    kind: PodDisruptionBudget
+    name: rag-backend-pdb
+  patch: |-
+    - op: add
+      path: /metadata
+      value:
+        name: rag-backend-pdb
+        namespace: rag-staging
+    - op: add
+      path: /spec
+      value:
+        minAvailable: 1
+        selector:
+          matchLabels:
+            app: rag-backend

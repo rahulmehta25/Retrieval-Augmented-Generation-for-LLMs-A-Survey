@@ -1,0 +1,284 @@
+# Pod Security Policy for production
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: rag-production-psp
+  namespace: rag-prod
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: security
+    environment: production
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+
+---
+# Pod Disruption Budgets for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rag-backend-pdb
+  namespace: rag-prod
+  labels:
+    app.kubernetes.io/name: rag-backend
+    app.kubernetes.io/component: availability
+    environment: production
+spec:
+  minAvailable: 3  # Always keep at least 3 backend pods running
+  selector:
+    matchLabels:
+      app: rag-backend
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rag-frontend-pdb
+  namespace: rag-prod
+  labels:
+    app.kubernetes.io/name: rag-frontend
+    app.kubernetes.io/component: availability
+    environment: production
+spec:
+  minAvailable: 2  # Always keep at least 2 frontend pods running
+  selector:
+    matchLabels:
+      app: rag-frontend
+
+---
+# Resource Quotas for the production namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: rag-production-quota
+  namespace: rag-prod
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: resource-management
+    environment: production
+spec:
+  hard:
+    # Compute resources
+    requests.cpu: "20"
+    requests.memory: "40Gi"
+    limits.cpu: "50"
+    limits.memory: "80Gi"
+    
+    # Storage
+    requests.storage: "500Gi"
+    
+    # Object counts
+    count/pods: "100"
+    count/services: "20"
+    count/secrets: "10"
+    count/configmaps: "20"
+    count/persistentvolumeclaims: "10"
+    
+    # Load balancers
+    count/services.loadbalancers: "5"
+
+---
+# Limit Ranges for resource constraints
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: rag-production-limits
+  namespace: rag-prod
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: resource-management
+    environment: production
+spec:
+  limits:
+  # Container limits
+  - type: Container
+    default:
+      cpu: "1000m"
+      memory: "1Gi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    max:
+      cpu: "4000m"
+      memory: "8Gi"
+  # Pod limits
+  - type: Pod
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    max:
+      cpu: "8000m"
+      memory: "16Gi"
+  # PVC limits
+  - type: PersistentVolumeClaim
+    min:
+      storage: "1Gi"
+    max:
+      storage: "200Gi"
+
+---
+# Security Context Constraints (for OpenShift)
+# apiVersion: security.openshift.io/v1
+# kind: SecurityContextConstraints
+# metadata:
+#   name: rag-production-scc
+#   namespace: rag-prod
+# allowHostDirVolumePlugin: false
+# allowHostIPC: false
+# allowHostNetwork: false
+# allowHostPID: false
+# allowHostPorts: false
+# allowPrivilegedContainer: false
+# allowedCapabilities: null
+# defaultAddCapabilities: null
+# fsGroup:
+#   type: RunAsAny
+# requiredDropCapabilities:
+# - ALL
+# runAsUser:
+#   type: MustRunAsNonRoot
+# seLinuxContext:
+#   type: MustRunAs
+# volumes:
+# - configMap
+# - downwardAPI
+# - emptyDir
+# - persistentVolumeClaim
+# - projected
+# - secret
+
+---
+# Certificate for production TLS
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rag-production-tls-cert
+  namespace: rag-prod
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: tls
+    environment: production
+spec:
+  secretName: rag-production-tls-cert
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - rag.your-domain.com
+  - api.rag.your-domain.com
+  - "*.rag.your-domain.com"
+
+---
+# Backup job for production data
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rag-backup
+  namespace: rag-prod
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: backup
+    environment: production
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: rag-backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: backup
+            image: alpine:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache postgresql-client aws-cli
+              # Backup ChromaDB data
+              kubectl exec -n rag-prod deployment/chromadb -- tar czf - /chroma/chroma > /tmp/chromadb-backup-$(date +%Y%m%d).tar.gz
+              # Upload to S3 (configure AWS credentials via service account)
+              aws s3 cp /tmp/chromadb-backup-$(date +%Y%m%d).tar.gz s3://your-backup-bucket/rag-system/chromadb/
+              # Cleanup old backups (keep last 7 days)
+              find /tmp -name "chromadb-backup-*.tar.gz" -mtime +7 -delete
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /tmp
+          volumes:
+          - name: backup-storage
+            emptyDir:
+              sizeLimit: 10Gi
+          serviceAccountName: rag-backup-sa
+
+---
+# Service Account for backup job
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rag-backup-sa
+  namespace: rag-prod
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: backup
+  annotations:
+    # AWS IAM role for S3 access
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/rag-backup-role
+
+---
+# ClusterRole for backup operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: rag-prod
+  name: rag-backup-role
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: backup
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/exec"]
+  verbs: ["get", "list", "create"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rag-backup-binding
+  namespace: rag-prod
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: backup
+subjects:
+- kind: ServiceAccount
+  name: rag-backup-sa
+  namespace: rag-prod
+roleRef:
+  kind: Role
+  name: rag-backup-role
+  apiGroup: rbac.authorization.k8s.io

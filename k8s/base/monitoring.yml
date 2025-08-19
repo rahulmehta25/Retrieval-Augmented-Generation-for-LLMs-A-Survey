@@ -1,0 +1,223 @@
+# ServiceMonitor for Prometheus to scrape metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: rag-backend-monitor
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-backend
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rag-backend
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: rag-frontend-monitor
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-frontend
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rag-frontend
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# PrometheusRule for alerting
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: rag-alerts
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: alerting
+spec:
+  groups:
+  - name: rag-system.alerts
+    rules:
+    # High error rate
+    - alert: RAGHighErrorRate
+      expr: |
+        (
+          sum(rate(http_requests_total{job="rag-backend",code=~"5.."}[5m])) /
+          sum(rate(http_requests_total{job="rag-backend"}[5m]))
+        ) > 0.05
+      for: 2m
+      labels:
+        severity: warning
+        service: rag-backend
+      annotations:
+        summary: "High error rate detected in RAG backend"
+        description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+    
+    # High response time
+    - alert: RAGHighLatency
+      expr: |
+        histogram_quantile(0.95, 
+          sum(rate(http_request_duration_seconds_bucket{job="rag-backend"}[5m])) by (le)
+        ) > 2.0
+      for: 5m
+      labels:
+        severity: warning
+        service: rag-backend
+      annotations:
+        summary: "High latency detected in RAG backend"
+        description: "95th percentile latency is {{ $value }}s"
+    
+    # Pod restarts
+    - alert: RAGPodRestarting
+      expr: |
+        increase(kube_pod_container_status_restarts_total{pod=~"rag-.*"}[1h]) > 5
+      for: 0m
+      labels:
+        severity: warning
+        service: rag-system
+      annotations:
+        summary: "Pod {{ $labels.pod }} is restarting frequently"
+        description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last hour"
+    
+    # Memory usage
+    - alert: RAGHighMemoryUsage
+      expr: |
+        (
+          container_memory_working_set_bytes{pod=~"rag-.*"} /
+          container_spec_memory_limit_bytes{pod=~"rag-.*"}
+        ) > 0.9
+      for: 5m
+      labels:
+        severity: warning
+        service: rag-system
+      annotations:
+        summary: "High memory usage in {{ $labels.pod }}"
+        description: "Memory usage is {{ $value | humanizePercentage }}"
+    
+    # CPU usage
+    - alert: RAGHighCPUUsage
+      expr: |
+        (
+          rate(container_cpu_usage_seconds_total{pod=~"rag-.*"}[5m]) /
+          container_spec_cpu_quota{pod=~"rag-.*"} * 100000
+        ) > 90
+      for: 10m
+      labels:
+        severity: warning
+        service: rag-system
+      annotations:
+        summary: "High CPU usage in {{ $labels.pod }}"
+        description: "CPU usage is {{ $value }}%"
+    
+    # ChromaDB health
+    - alert: ChromaDBDown
+      expr: |
+        up{job="chromadb"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        service: chromadb
+      annotations:
+        summary: "ChromaDB is down"
+        description: "ChromaDB has been down for more than 1 minute"
+    
+    # Disk space
+    - alert: RAGLowDiskSpace
+      expr: |
+        (
+          kubelet_volume_stats_available_bytes{persistentvolumeclaim=~".*rag.*"} /
+          kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~".*rag.*"}
+        ) < 0.1
+      for: 5m
+      labels:
+        severity: critical
+        service: rag-system
+      annotations:
+        summary: "Low disk space on {{ $labels.persistentvolumeclaim }}"
+        description: "Only {{ $value | humanizePercentage }} disk space remaining"
+
+---
+# Grafana Dashboard ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-dashboard
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: monitoring
+    grafana_dashboard: "1"
+data:
+  rag-system.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "RAG System Monitoring",
+        "tags": ["rag", "monitoring"],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+          {
+            "title": "Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{job=\"rag-backend\"}[5m]))",
+                "legendFormat": "Requests/sec"
+              }
+            ]
+          },
+          {
+            "title": "Error Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{job=\"rag-backend\",code=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"rag-backend\"}[5m]))",
+                "legendFormat": "Error Rate"
+              }
+            ]
+          },
+          {
+            "title": "Response Time",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"rag-backend\"}[5m])) by (le))",
+                "legendFormat": "95th Percentile"
+              },
+              {
+                "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"rag-backend\"}[5m])) by (le))",
+                "legendFormat": "Median"
+              }
+            ]
+          },
+          {
+            "title": "Pod Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(kube_pod_info{pod=~\"rag-.*\"})",
+                "legendFormat": "Running Pods"
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }

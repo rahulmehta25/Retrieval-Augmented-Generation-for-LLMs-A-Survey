@@ -1,0 +1,204 @@
+# Network policy for backend - only allows ingress from frontend and ingress controller
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rag-backend-netpol
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-backend
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: rag-backend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from frontend
+  - from:
+    - podSelector:
+        matchLabels:
+          app: rag-frontend
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow from monitoring (Prometheus)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  # Allow DNS
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow ChromaDB access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: chromadb
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow external API calls (OpenAI, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+
+---
+# Network policy for frontend - only allows ingress from ingress controller
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rag-frontend-netpol
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-frontend
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: rag-frontend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3000
+  # Allow from load balancer
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  # Allow DNS
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow backend access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: rag-backend
+    ports:
+    - protocol: TCP
+      port: 8000
+
+---
+# Network policy for ChromaDB - only allows access from backend
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: chromadb-netpol
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: chromadb
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: chromadb
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from backend only
+  - from:
+    - podSelector:
+        matchLabels:
+          app: rag-backend
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow health checks
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  # Allow DNS
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+---
+# Default deny all policy for the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: security
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# Allow kube-system access for health checks and DNS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kube-system
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: security
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow health checks from kube-system
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+  egress:
+  # Allow DNS to kube-system
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53

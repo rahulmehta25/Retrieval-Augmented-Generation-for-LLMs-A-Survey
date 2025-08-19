@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-backend-config
+  namespace: rag-prod
+data:
+  # Production configuration - optimized for performance and reliability
+  APP_ENV: "production"
+  LOG_LEVEL: "WARN"  # Less verbose logging in production
+  
+  # API Configuration for production
+  API_HOST: "0.0.0.0"
+  API_PORT: "8000"
+  API_WORKERS: "8"  # More workers for production load
+  
+  # Vector Database
+  CHROMA_HOST: "chromadb-service"
+  CHROMA_PORT: "8000"
+  
+  # Embedding Configuration
+  EMBEDDING_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
+  EMBEDDING_CACHE_SIZE: "2000"  # Larger cache for production
+  
+  # RAG Configuration
+  MAX_CHUNK_SIZE: "1000"
+  CHUNK_OVERLAP: "200"
+  TOP_K_RETRIEVAL: "5"
+  
+  # Performance Settings (production-optimized)
+  MAX_CONCURRENT_REQUESTS: "500"
+  REQUEST_TIMEOUT: "30"
+  CONNECTION_POOL_SIZE: "50"
+  WORKER_TIMEOUT: "120"
+  
+  # Production features
+  ENABLE_DEBUG_ENDPOINTS: "false"
+  ENABLE_METRICS: "true"
+  ENABLE_TRACING: "true"
+  ENABLE_PROFILING: "false"
+  
+  # Security settings (strict for production)
+  ENABLE_CORS: "true"
+  CORS_ORIGINS: "https://rag.your-domain.com"
+  RATE_LIMIT_ENABLED: "true"
+  RATE_LIMIT_REQUESTS_PER_MINUTE: "100"
+  
+  # Health Check
+  HEALTH_CHECK_INTERVAL: "15"  # Faster health checks in production
+  
+  # Blue-Green deployment settings
+  DEPLOYMENT_COLOR: "COLOR_LABEL"
+  CANARY_ENABLED: "true"
+  GRACEFUL_SHUTDOWN_TIMEOUT: "30"
+  
+  # Cache settings
+  REDIS_ENABLED: "true"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  CACHE_TTL: "3600"
+  
+  # Database connection pooling
+  DB_POOL_SIZE: "20"
+  DB_POOL_MAX_OVERFLOW: "30"
+  DB_POOL_TIMEOUT: "10"
+  
+  # Monitoring and observability
+  PROMETHEUS_ENABLED: "true"
+  JAEGER_ENABLED: "true"
+  LOGGING_FORMAT: "json"
+  
+  # Security
+  ENABLE_AUTHENTICATION: "true"
+  JWT_EXPIRATION: "3600"
+  SECURE_HEADERS_ENABLED: "true"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-frontend-config
+  namespace: rag-prod
+data:
+  # Frontend production configuration
+  VITE_API_BASE_URL: "https://api.rag.your-domain.com"
+  VITE_APP_TITLE: "RAG System"
+  VITE_APP_VERSION: "1.0.0"
+  VITE_ENVIRONMENT: "production"
+  VITE_DEBUG_MODE: "false"
+  VITE_LOG_LEVEL: "error"  # Only log errors in production
+  
+  # Analytics and monitoring
+  VITE_ENABLE_ANALYTICS: "true"
+  VITE_GOOGLE_ANALYTICS_ID: "GA_MEASUREMENT_ID"
+  VITE_SENTRY_ENABLED: "true"
+  VITE_SENTRY_DSN: "SENTRY_DSN_URL"
+  
+  # Performance
+  VITE_ENABLE_SW: "true"  # Service worker for caching
+  VITE_BUNDLE_ANALYZER: "false"
+  
+  # Security
+  VITE_CSP_ENABLED: "true"
+  VITE_ENABLE_HTTPS_REDIRECT: "true"
+  
+  # Feature flags
+  VITE_FEATURE_ADVANCED_SEARCH: "true"
+  VITE_FEATURE_USER_FEEDBACK: "true"
+  VITE_FEATURE_EXPORT_RESULTS: "true"
+
+---
+# Redis configuration for caching
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: rag-prod
+data:
+  redis.conf: |
+    # Redis production configuration
+    maxmemory 512mb
+    maxmemory-policy allkeys-lru
+    timeout 0
+    tcp-keepalive 60
+    tcp-backlog 511
+    databases 16
+    save 900 1
+    save 300 10
+    save 60 10000
+    stop-writes-on-bgsave-error yes
+    rdbcompression yes
+    rdbchecksum yes
+    dbfilename dump.rdb
+    dir /data
+    replica-serve-stale-data yes
+    replica-read-only yes
+    repl-diskless-sync no
+    repl-diskless-sync-delay 5
+    replica-priority 100
+    maxclients 10000
+    lazyfree-lazy-eviction no
+    lazyfree-lazy-expire no
+    lazyfree-lazy-server-del no
+    replica-lazy-flush no
