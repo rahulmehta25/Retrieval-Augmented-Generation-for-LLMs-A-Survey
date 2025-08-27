@@ -1,0 +1,101 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build artifacts
+dist/
+build/
+.next/
+
+# Development files
+*.log
+*.lock
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Test files
+tests/
+**/*.test.*
+**/*.spec.*
+coverage/
+.nyc_output/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Version control
+.git/
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
+
+# Python files (backend related)
+*.py
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+requirements*.txt
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+chroma_db/
+**/chroma_db/
+
+# Config files not needed for frontend
+config.yaml
+docker-compose*.yml
+Dockerfile*
+terraform/
+k8s/
+scripts/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Logs
+logs/
+*.log
+
+# Backend specific directories
+src/
+api_server.py
+**/src/
+**/backend/
+**/api/
+uploaded_documents/
+embedding_cache/
+
+# Development tools
+.eslintrc*
+.prettierrc*
+playwright.config.*
+jest.config.*
+
+# Exclude everything except frontend
+!rag-from-scratch/frontend/
